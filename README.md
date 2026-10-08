@@ -25,6 +25,19 @@ Godot 4.4.1 ile hazırlanmış, telefon ve bilgisayar için 7×7 zincir oyunu pr
 - **Tur özeti:** süre bitince puan, en uzun zincir ve başarılı hamle sayısı gösterilir.
 - **Rekor:** bu tarayıcıda/cihazda saklanır. Tarayıcı verilerinin silinmesi veya gizli mod kalıcılığı etkileyebilir; modlar ortak rekor kullanır.
 
+## Kalıcı hedefler ve ödüller
+
+Üstteki **Hedefler ve ödüller** yazısına dokunarak ilerleme ekranını aç. Bu ekran açıkken tur duraklar.
+
+- Her geçerli zincir `taş sayısı × 3 + kombo × 2` deneyim kazandırır. Her 100 deneyimde bir seviye yükselir.
+- Aktif görevi tamamlamak **1 yıldız + 30 deneyim** kazandırır. Bir hamle yalnızca o sırada aktif olan göreve sayılır.
+- Görevler; zincir uzunluğu, başarılı hamle sayısı, kombo, toplam kazanılan puan ve temizlenen taş hedefleri arasında döner. Sonraki döngülerde hedefler artar.
+- **3 yıldızda Neon**, **6 yıldızda Pastel** teması açılır. Yıldızlar harcanmaz. Açılan temayı ödüller ekranından seç.
+- Görev ilerlemesi, deneyim, yıldızlar ve seçilen tema tur yenilendiğinde korunur; her geçerli hamlede bu cihazda kaydedilir.
+- **60 saniyelik modun rekoru ayrı tutulur:** 100 puan Bronz, 300 Gümüş, 750 Altın, 1500 Elmas madalya verir. Rahat mod görev ve deneyim kazandırır, süreli madalya rekoruna sayılmaz.
+- Görev ve seviyeler bu cihazdaki kişisel ilerlemedir. Başka oyuncularla ortak bir çevrimiçi sıralama bulunmaz.
+- Önceki sürümün genel rekoru korunur; ayrı süreli rekor yeni sürümdeki süreli hamlelerle oluşur.
+
 ## Godot'ta aç
 
 1. Godot **4.4.1 Standard** sürümünü aç (C#/.NET gerekmez).
