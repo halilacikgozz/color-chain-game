@@ -4,6 +4,25 @@ const SIDE := 7
 const CELL := 58.0
 const ORIGIN := Vector2(37, 230)
 const COLORS := [Color("ff6584"), Color("58d8ce"), Color("ffd166"), Color("9381ff")]
+const PALETTES := [
+	[Color("ff6584"), Color("58d8ce"), Color("ffd166"), Color("9381ff")],
+	[Color("ff75dd"), Color("70f6ff"), Color("c7ff77"), Color("ae95ff")],
+	[Color("ff968a"), Color("8ed6b1"), Color("ffe4a1"), Color("b7acff")]
+]
+const THEME_NAMES := ["Klasik", "Neon", "Pastel"]
+const THEME_COSTS := [0, 3, 6]
+const PROFILE_BUTTON := Rect2(37, 60, 406, 25)
+const PROFILE_BACK := Rect2(37, 710, 406, 56)
+const QUESTS := [
+	{"kind": "chain", "target": 3, "title": "İlk adım: 3 taş bağla"},
+	{"kind": "moves", "target": 5, "title": "5 başarılı zincir yap"},
+	{"kind": "chain", "target": 5, "title": "Tek zincirde 5 taş bağla"},
+	{"kind": "combo", "target": 3, "title": "Kombo x3'e ulaş"},
+	{"kind": "points", "target": 500, "title": "Toplam 500 puan kazan"},
+	{"kind": "chain", "target": 7, "title": "Tek zincirde 7 taş bağla"},
+	{"kind": "tiles", "target": 80, "title": "Toplam 80 taş temizle"},
+	{"kind": "combo", "target": 4, "title": "Kombo x4'e ulaş"}
+]
 const DIRECTIONS := [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]
 const RESTART := Rect2(100, 690, 280, 52)
 const MODE_BUTTON := Rect2(37, 754, 195, 32)
@@ -15,6 +34,16 @@ var chain: Array[int] = []
 var offsets: Array[float] = []
 var score := 0
 var best := 0
+var timed_best := 0
+var xp := 0
+var stars := 0
+var quests_done := 0
+var quest_progress := 0
+var theme_index := 0
+var profile_open := false
+var round_xp := 0
+var palette: Array = PALETTES[0]
+var save_path := "user://color_chain.cfg"
 var dragging := false
 var pointer := -2
 var busy := false
@@ -42,15 +71,107 @@ var moves := 0
 
 func _ready() -> void:
 	rng.randomize()
-	var config := ConfigFile.new()
-	if config.load("user://color_chain.cfg") == OK:
-		best = int(config.get_value("game", "best", 0))
+	load_progress()
 	restart()
+
+func load_progress() -> void:
+	var config := ConfigFile.new()
+	if config.load(save_path) != OK:
+		return
+	best = maxi(0, int(config.get_value("game", "best", 0)))
+	timed_best = maxi(0, int(config.get_value("progress", "timed_best", 0)))
+	xp = maxi(0, int(config.get_value("progress", "xp", 0)))
+	stars = maxi(0, int(config.get_value("progress", "stars", 0)))
+	quests_done = maxi(0, int(config.get_value("progress", "quests_done", 0)))
+	quest_progress = clampi(int(config.get_value("progress", "quest_progress", 0)), 0, quest_target() - 1)
+	theme_index = clampi(int(config.get_value("progress", "theme", 0)), 0, PALETTES.size() - 1)
+	if stars < THEME_COSTS[theme_index]:
+		theme_index = 0
+	palette = PALETTES[theme_index]
 
 func save_best() -> void:
 	var config := ConfigFile.new()
 	config.set_value("game", "best", best)
-	config.save("user://color_chain.cfg")
+	config.set_value("progress", "timed_best", timed_best)
+	config.set_value("progress", "xp", xp)
+	config.set_value("progress", "stars", stars)
+	config.set_value("progress", "quests_done", quests_done)
+	config.set_value("progress", "quest_progress", quest_progress)
+	config.set_value("progress", "theme", theme_index)
+	config.save(save_path)
+
+func player_level() -> int:
+	return 1 + xp / 100
+
+func quest_target() -> int:
+	var base: int = QUESTS[quests_done % QUESTS.size()]["target"]
+	var cycle := quests_done / QUESTS.size()
+	var kind: String = QUESTS[quests_done % QUESTS.size()]["kind"]
+	if kind == "combo":
+		return mini(5, base + cycle)
+	if kind == "chain":
+		return mini(10, base + cycle)
+	return base + cycle * maxi(5, base / 2)
+
+func quest_title() -> String:
+	var kind: String = QUESTS[quests_done % QUESTS.size()]["kind"]
+	var target := quest_target()
+	match kind:
+		"chain": return "%d taşı tek zincirde bağla" % target
+		"moves": return "%d başarılı zincir yap" % target
+		"combo": return "Kombo x%d'e ulaş" % target
+		"points": return "Toplam %d puan kazan" % target
+		_: return "Toplam %d taş temizle" % target
+
+func update_progress(count: int, gained: int) -> void:
+	var old_level := player_level()
+	var earned := count * 3 + combo * 2
+	xp += earned
+	round_xp += earned
+	if timed_mode:
+		timed_best = maxi(timed_best, score)
+	var kind: String = QUESTS[quests_done % QUESTS.size()]["kind"]
+	match kind:
+		"chain": quest_progress = maxi(quest_progress, count)
+		"combo": quest_progress = maxi(quest_progress, combo)
+		"moves": quest_progress += 1
+		"points": quest_progress += gained
+		"tiles": quest_progress += count
+	if quest_progress >= quest_target():
+		stars += 1
+		quests_done += 1
+		quest_progress = 0
+		xp += 30
+		round_xp += 30
+		message = "Görev tamam! +1 yıldız • +30 deneyim"
+		if stars == 3 or stars == 6:
+			message = "%s teması açıldı! Hedefler'e dokun." % ("Neon" if stars == 3 else "Pastel")
+	elif player_level() > old_level:
+		message = "Seviye %d! Yeni hedefe devam et." % player_level()
+	save_best()
+
+func choose_theme(index: int) -> bool:
+	if index < 0 or index >= PALETTES.size() or stars < THEME_COSTS[index]:
+		return false
+	theme_index = index
+	palette = PALETTES[index]
+	save_best()
+	queue_redraw()
+	return true
+
+func medal(value: int) -> String:
+	if value >= 1500: return "ELMAS"
+	if value >= 750: return "ALTIN"
+	if value >= 300: return "GÜMÜŞ"
+	if value >= 100: return "BRONZ"
+	return "ÇAYLAK"
+
+func next_medal(value: int) -> String:
+	if value < 100: return "Bronz hedefi: 100 puan"
+	if value < 300: return "Gümüş hedefi: 300 puan"
+	if value < 750: return "Altın hedefi: 750 puan"
+	if value < 1500: return "Elmas hedefi: 1500 puan"
+	return "Elmas kazanıldı! Rekorunu geliştir."
 
 func restart() -> void:
 	if score > 0:
@@ -67,6 +188,8 @@ func restart() -> void:
 	started = false
 	ended = false
 	moves = 0
+	round_xp = 0
+	profile_open = false
 	longest = 0
 	impact = 0.0
 	pop_progress = 0.0
@@ -87,7 +210,7 @@ func restart() -> void:
 func _process(delta: float) -> void:
 	elapsed += delta
 	impact = maxf(0.0, impact - delta * 3.0)
-	if focused and started and not ended:
+	if focused and started and not ended and not profile_open:
 		combo_left = maxf(0.0, combo_left - delta)
 		if combo_left <= 0.0:
 			combo = 0
@@ -128,7 +251,7 @@ func adjacent(a: int, b: int) -> bool:
 	return absi(a % SIDE - b % SIDE) + absi(a / SIDE - b / SIDE) == 1
 
 func select_cell(index: int) -> void:
-	if index < 0 or busy or ended:
+	if index < 0 or busy or ended or profile_open:
 		return
 	if chain.is_empty():
 		chain.append(index)
@@ -154,6 +277,7 @@ func _input(event: InputEvent) -> void:
 	elif event is InputEventMouseMotion and pointer == -1 and dragging:
 		select_cell(cell_at(event.position))
 	elif event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
+		profile_open = false
 		cancel_selection()
 
 func cancel_selection() -> void:
@@ -171,6 +295,21 @@ func _notification(what: int) -> void:
 		focused = true
 
 func press(pos: Vector2, id: int) -> void:
+	if profile_open:
+		if PROFILE_BACK.has_point(pos):
+			profile_open = false
+		else:
+			for i in PALETTES.size():
+				if Rect2(37, 356 + i * 86, 406, 74).has_point(pos):
+					choose_theme(i)
+		queue_redraw()
+		return
+	if PROFILE_BUTTON.has_point(pos):
+		if not busy:
+			cancel_selection()
+			profile_open = true
+		queue_redraw()
+		return
 	if RESTART.has_point(pos):
 		restart()
 		return
@@ -195,7 +334,7 @@ func press(pos: Vector2, id: int) -> void:
 func release_pointer() -> void:
 	dragging = false
 	pointer = -2
-	if busy or ended:
+	if busy or ended or profile_open:
 		return
 	if chain.size() < 3:
 		chain.clear()
@@ -217,6 +356,7 @@ func release_pointer() -> void:
 	var bonus := mini(5, count - 2) if count >= 5 and timed_mode else 0
 	remaining = minf(ROUND_SECONDS, remaining + bonus)
 	message = "%d taş • +%d puan%s" % [count, gained, " • +%d sn" % bonus if bonus > 0 else ""]
+	update_progress(count, gained)
 	var middle := center(chain[chain.size() / 2])
 	if effects:
 		floaters.append({"pos": middle, "text": "+%d" % gained, "life": 1.0, "color": Color("ffd166")})
@@ -226,7 +366,7 @@ func release_pointer() -> void:
 		for index in chain:
 			for n in 8:
 				var angle := rng.randf_range(0.0, TAU)
-				particles.append({"pos": center(index), "velocity": Vector2.from_angle(angle) * rng.randf_range(60, 150), "life": rng.randf_range(0.35, 0.65), "color": COLORS[board[index]]})
+				particles.append({"pos": center(index), "velocity": Vector2.from_angle(angle) * rng.randf_range(60, 150), "life": rng.randf_range(0.35, 0.65), "color": palette[board[index]]})
 	popping.assign(chain)
 	fall_tween = create_tween()
 	fall_tween.tween_method(animate_pop, 0.0, 1.0, 0.12)
@@ -322,10 +462,43 @@ func box(rect: Rect2, color: Color, radius: int = 16) -> void:
 	style.set_corner_radius_all(radius)
 	draw_style_box(style, rect)
 
+func draw_profile() -> void:
+	draw_rect(Rect2(0, 0, 480, 800), Color("090d19"))
+	text("HEDEFİNİ BÜYÜT", 47, 27)
+	text("HEDEFLER VE ÖDÜLLER", 77, 18, Color("58d8ce"))
+	text("SEVİYE %d  •  %d YILDIZ" % [player_level(), stars], 123, 26, Color("ffd166"))
+	box(Rect2(37, 145, 406, 8), Color("172139"), 4)
+	box(Rect2(37, 145, 406 * float(xp % 100) / 100.0, 8), Color("9381ff"), 4)
+	text("Sonraki seviye: %d / 100 deneyim" % (xp % 100), 177, 16, Color("9caac7"))
+	box(Rect2(37, 194, 406, 126), Color("172139"))
+	text("GÖREV %d" % (quests_done + 1), 222, 16, Color("58d8ce"))
+	text(quest_title(), 253, 23)
+	text("İlerleme: %d / %d" % [quest_progress, quest_target()], 283, 18, Color("9caac7"))
+	text("Ödül: 1 yıldız + 30 deneyim", 307, 15, Color("ffd166"))
+	text("TEMALAR • Yıldızların harcanmaz", 344, 17, Color("9caac7"))
+	for i in PALETTES.size():
+		var y := 356 + i * 86
+		var unlocked: bool = stars >= THEME_COSTS[i]
+		box(Rect2(37, y, 406, 74), Color("25385a") if theme_index == i else Color("172139"))
+		label_at(THEME_NAMES[i], Vector2(115, y + 29), 22, Color.WHITE if unlocked else Color("9caac7"))
+		var status: String = "SEÇİLİ" if theme_index == i else ("SEÇ" if unlocked else "%d / %d yıldız" % [stars, THEME_COSTS[i]])
+		label_at(status, Vector2(115, y + 54), 14, Color("58d8ce") if unlocked else Color("9caac7"))
+		for j in 4:
+			draw_circle(Vector2(250 + j * 45, y + 37), 15, Color(PALETTES[i][j], 1.0 if unlocked else 0.35))
+	text("60 SN MADALYAN: %s" % medal(timed_best), 643, 19, Color("ffd166"))
+	text("Süreli rekor: %d • %s" % [timed_best, next_medal(timed_best)], 671, 15, Color("9caac7"))
+	text("Görevler ve deneyim her iki modda kazanılır.", 695, 14, Color("9caac7"))
+	box(PROFILE_BACK, Color("526bd8"))
+	text("Oyuna dön", 746, 22)
+	text("Tur duraklatıldı • İlerleme bu cihazda saklanır", 788, 14, Color("9caac7"))
+
 func _draw() -> void:
+	if profile_open:
+		draw_profile()
+		return
 	var accent := Color("ffd166") if remaining > 10 or not timed_mode else Color("ff6584")
 	text("COLOR CHAIN", 52, 34)
-	text("Bir zincir daha!", 78, 17, Color("9caac7"))
+	text("SV %d • %d yıldız • Hedefler ve ödüller ›" % [player_level(), stars], 78, 16, Color("58d8ce"))
 	box(Rect2(37, 92, 195, 36), Color("172139"))
 	box(Rect2(248, 92, 195, 36), Color("172139"))
 	label_at("SÜRE  %02d" % ceili(remaining) if timed_mode else "RAHAT MOD  ∞", Vector2(134, 116), 18, accent)
@@ -348,9 +521,9 @@ func _draw() -> void:
 		if popping.has(i):
 			radius *= 1.0 - pop_progress
 		if selected and effects:
-			draw_circle(pos, radius + 6, Color(COLORS[board[i]], 0.15))
+			draw_circle(pos, radius + 6, Color(palette[board[i]], 0.15))
 		draw_circle(pos + Vector2(0, 4), radius, Color("080e1c"))
-		draw_circle(pos, radius, COLORS[board[i]])
+		draw_circle(pos, radius, palette[board[i]])
 		if radius > 10:
 			draw_circle(pos + Vector2(-7, -9), 5, Color(1, 1, 1, 0.18))
 			label_at(["1", "2", "3", "4"][board[i]], pos + Vector2(0, 7), 20, Color("15213a"))
@@ -370,7 +543,7 @@ func _draw() -> void:
 		text("KOMBO x%d" % combo, 662, 22, Color("ffd166"))
 		box(Rect2(145, 672, 190 * combo_left / COMBO_WINDOW, 3), Color("ffd166"), 1)
 	else:
-		text(("Zincir: %d  •  5+ taş = süre bonusu" if timed_mode else "Zincir: %d  •  Hızlı zincir = kombo") % chain.size(), 662, 16, Color("9caac7"))
+		text("Görev: %s (%d/%d)" % [quest_title(), quest_progress, quest_target()], 662, 15, Color("9caac7"))
 	box(RESTART, Color("526bd8"))
 	text("Tekrar oyna" if ended else "Yeniden başlat", 723, 21)
 	box(MODE_BUTTON, Color("172139"), 9)
@@ -379,9 +552,9 @@ func _draw() -> void:
 	label_at("Efektler: Açık" if effects else "Efektler: Sade", Vector2(346, 775), 15, Color("9caac7"))
 	if ended:
 		draw_rect(Rect2(ORIGIN - Vector2(9, 9), Vector2.ONE * (SIDE * CELL + 18)), Color(0.03, 0.05, 0.1, 0.9))
-		text("SÜRE DOLDU!", 354, 30, Color("ffd166"))
+		text("%s MADALYA" % medal(score) if score >= 100 else "TUR TAMAMLANDI", 354, 28, Color("ffd166"))
 		text("%d PUAN" % score, 415, 38)
 		text("En uzun zincir: %d taş" % longest, 465, 20, Color("58d8ce"))
-		text("%d başarılı hamle" % moves, 500, 19, Color("9caac7"))
-		text("Rekor: %d" % best, 545, 23, Color("ffd166"))
+		text("+%d deneyim • Seviye %d" % [round_xp, player_level()], 500, 19, Color("9caac7"))
+		text(next_medal(score), 545, 20, Color("ffd166"))
 		text("Yeni tur için Tekrar oyna'ya dokun.", 592, 16, Color("9caac7"))
