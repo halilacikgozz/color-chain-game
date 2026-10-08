@@ -2,6 +2,20 @@
 
 Godot 4.4.1 ile hazırlanmış, telefon ve bilgisayar için 7×7 zincir oyunu prototipi.
 
+## Renk Bahçesi: bölüm yolculuğu
+
+Oyun 10 duraklı bölüm haritasıyla açılır. İlk bölümü geçerek sıradakini aç.
+
+- Bölümler sınırlı hamlede puan hedefine ulaşmayı ister; dördüncü bölümden itibaren tüm buzları da kırmalısın.
+- Buzlar hücrelerde kalır. O hücredeki taşı zincirle veya özel taş etkisiyle temizlemek buzu kırar.
+- Bomba, şimşek ve gökkuşağı ilerleyen bölümlerde tanıtılır. İlk bölümler üç, sonraki bölümler dört renktir.
+- Kalan hamlelerin en az yarısıyla bitirirsen 3, en az beşte biriyle 2, diğer başarılarla 1 bölüm yıldızı kazanırsın. En iyi sonuç korunur.
+- İlk tamamlamada +50 deneyim kazanılır. Bölüm yıldızları görev yıldızlarından ayrıdır.
+- Onuncu bölümü bitirince Çiçek Bahçesi teması açılır; ödüller ekranından seçebilirsin.
+- Can, bekleme ve deneme sınırı yoktur. Bölüm başlangıçları tekrarlanabilir; başarısız olunca yeniden deneyebilirsin.
+- Haritadaki Serbest oyuna geç düğmesi önceki süreli/rahat oyunu açar. Harita düğmesiyle yolculuğa dön.
+- Bölüm ilerlemesi, yıldızlar ve tema aynı cihazda kaydedilir; önceki deneyim ve rekorlar korunur.
+
 ## Oynanış
 
 - Fareye basılı tutarak veya parmağınla sürükleyerek aynı renk taşları bağla.
@@ -49,7 +63,7 @@ Godot 4.4.1 ile hazırlanmış, telefon ve bilgisayar için 7×7 zincir oyunu pr
 - Ödül, zincirin son taşının yerinde oluşur ve düşme sırasında diğer taşlarla birlikte hareket eder. Bu hamlede yeni kazanılan taş etkinleşmez.
 - Özel taş aynı rengin en az 3 taşlık geçerli zincirine katıldığında etkinleşir. Kısa zincir etkisini tetiklemez.
 - Patlamanın ulaştığı başka özel taşlar da etkinleşir; her hücre bir kez sayılır. Seçili zincirin dışındaki temizlenen her taş kombo öncesinde 10 ek puan verir.
-- Her yeni turda sol üstte aynı renkte üç taş ve bir başlangıç bombası bulunur.
+- Her yeni serbest turda sol üstte aynı renkte üç taş ve bir başlangıç bombası bulunur.
 - Sade efektlerde özel taşların simgeleri ve oyun etkileri korunur; şok dalgası ve elektrik çizgileri kapatılır.
 - Özel taşlar o tura aittir; turu yenilemek tahtayı sıfırlar. Seviye, yıldız ve tema kayıtları korunur.
 
