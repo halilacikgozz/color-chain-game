@@ -205,6 +205,63 @@ func run_tests() -> void:
 	game.restart()
 	await create_timer(0.6).timeout
 	check(not game.resolution_active and game.clear_cells.is_empty() and game.special_waves.is_empty(), "Restart cancels pending special effects")
+	game.restart()
+	game.specials.fill(0)
+	game.board.fill(1)
+	game.specials[0] = game.RAINBOW
+	game.select_cell(0)
+	game.select_cell(1)
+	game.board[2] = 2
+	game.select_cell(2)
+	check(game.chain.size() == 2 and game.chain_color() == 1, "Rainbow first locks to first normal tile color")
+	game.select_cell(0)
+	game.board[7] = 2
+	game.select_cell(7)
+	check(game.chain_color() == 2 and game.chain.size() == 2, "Backtracking releases rainbow color lock")
+	game.chain.clear()
+	game.specials.fill(0)
+	game.board.fill(1)
+	game.specials[1] = game.RAINBOW
+	game.board[2] = 2
+	game.select_cell(0)
+	game.select_cell(1)
+	game.select_cell(2)
+	check(game.chain.size() == 2, "Rainbow cannot bridge two different normal colors")
+	game.chain.clear()
+	game.specials.fill(0)
+	game.board.fill(1)
+	game.specials[0] = game.RAINBOW
+	for index in [1, 2, 5, 12, 19]:
+		game.board[index] = 2
+	game.chain.assign([0, 1, 2])
+	game.prepare_resolution()
+	check(game.clear_cells.size() == 6 and game.clear_cells.has(19) and not game.clear_cells.has(3), "Rainbow clears chosen color throughout board")
+	game.collapse()
+	game.specials.fill(0)
+	game.board.fill(1)
+	game.specials[0] = game.RAINBOW
+	game.specials[12] = game.BOMB
+	for index in [1, 2, 12]:
+		game.board[index] = 2
+	game.chain.assign([0, 1, 2])
+	game.prepare_resolution()
+	check(game.clear_cells.has(11) and game.clear_cells.has(13), "Rainbow activates a matching-color bomb")
+	game.collapse()
+	game.specials.fill(0)
+	game.board.fill(0)
+	game.chain.assign([0, 1, 2, 3, 4, 5, 6, 7, 8])
+	game.prepare_resolution()
+	check(game.reward_kind == game.RAINBOW and not game.clear_cells.has(8), "Nine tiles award a rainbow instead of lightning")
+	game.collapse()
+	check(game.specials.count(game.RAINBOW) == 1, "Rainbow reward survives refill")
+	game.specials.fill(0)
+	game.board.fill(1)
+	for index in [0, 1, 2]:
+		game.specials[index] = game.RAINBOW
+	game.chain.assign([0, 1, 2])
+	game.prepare_resolution()
+	check(game.clear_cells.size() == 49, "Rainbow-only chains resolve with a deterministic fallback color")
+	game.restart()
 	DirAccess.remove_absolute(game.save_path)
 	game.queue_free()
 	print("Color Chain tests: %d failures" % failures)
