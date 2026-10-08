@@ -2,6 +2,7 @@ extends Node2D
 
 const BOMB := 1
 const LIGHTNING := 2
+const RAINBOW := 3
 const SIDE := 7
 const CELL := 58.0
 const ORIGIN := Vector2(37, 230)
@@ -239,7 +240,7 @@ func _process(delta: float) -> void:
 				end_round()
 	for i in range(special_waves.size() - 1, -1, -1):
 		special_waves[i]["age"] += delta
-		if special_waves[i]["age"] >= 0.7:
+		if special_waves[i]["age"] >= 0.9:
 			special_waves.remove_at(i)
 	for i in range(particles.size() - 1, -1, -1):
 		particles[i]["life"] -= delta
@@ -273,6 +274,16 @@ func cell_at(pos: Vector2) -> int:
 func adjacent(a: int, b: int) -> bool:
 	return absi(a % SIDE - b % SIDE) + absi(a / SIDE - b / SIDE) == 1
 
+func chain_color() -> int:
+	for index in chain:
+		if specials[index] != RAINBOW:
+			return board[index]
+	return -1
+
+func can_join_chain(index: int) -> bool:
+	var color := chain_color()
+	return specials[index] == RAINBOW or color == -1 or board[index] == color
+
 func select_cell(index: int) -> void:
 	if index < 0 or busy or ended or profile_open:
 		return
@@ -280,7 +291,7 @@ func select_cell(index: int) -> void:
 		chain.append(index)
 	elif chain.size() >= 2 and index == chain[chain.size() - 2]:
 		chain.pop_back()
-	elif not chain.has(index) and adjacent(chain.back(), index) and board[index] == board[chain.front()]:
+	elif not chain.has(index) and adjacent(chain.back(), index) and can_join_chain(index):
 		chain.append(index)
 	queue_redraw()
 
@@ -384,7 +395,7 @@ func release_pointer() -> void:
 	message = "%d taş • +%d puan%s" % [count, gained, " • +%d sn" % bonus if bonus > 0 else ""]
 	update_progress(count, gained)
 	if reward_kind != 0:
-		message = "%s kazandın! Sonraki zincirde kullan." % ("Şimşek" if reward_kind == LIGHTNING else "Bomba")
+		message = "%s kazandın! Sonraki zincirde kullan." % special_name(reward_kind)
 	var middle := center(chain[chain.size() / 2])
 	if effects:
 		floaters.append({"pos": middle, "text": "+%d" % gained, "life": 1.0, "color": Color("ffd166")})
@@ -407,7 +418,10 @@ func prepare_resolution() -> void:
 	clear_cells.assign(chain)
 	resolution_active = true
 	reward_anchor = chain.back() if chain.size() >= 5 else -1
-	reward_kind = LIGHTNING if chain.size() >= 7 else (BOMB if chain.size() >= 5 else 0)
+	reward_kind = RAINBOW if chain.size() >= 9 else (LIGHTNING if chain.size() >= 7 else (BOMB if chain.size() >= 5 else 0))
+	var target_color := chain_color()
+	if target_color < 0:
+		target_color = board[chain.front()]
 	var activated: Array[int] = []
 	var cursor := 0
 	while cursor < clear_cells.size():
@@ -417,13 +431,22 @@ func prepare_resolution() -> void:
 			continue
 		activated.append(index)
 		if effects:
-			special_waves.append({"kind": specials[index], "pos": center(index), "age": 0.0})
+			var targets := PackedVector2Array()
+			if specials[index] == RAINBOW:
+				for target in board.size():
+					if board[target] == target_color or specials[target] == RAINBOW:
+						targets.append(center(target))
+			special_waves.append({"kind": specials[index], "pos": center(index), "age": 0.0, "targets": targets})
 		if specials[index] == LIGHTNING:
 			var row := index / SIDE
 			for x in SIDE:
 				var affected := row * SIDE + x
 				if not clear_cells.has(affected):
 					clear_cells.append(affected)
+		elif specials[index] == RAINBOW:
+			for target in board.size():
+				if (board[target] == target_color or specials[target] == RAINBOW) and not clear_cells.has(target):
+					clear_cells.append(target)
 		else:
 			var pos := Vector2i(index % SIDE, index / SIDE)
 			for dy in range(-1, 2):
@@ -436,6 +459,7 @@ func prepare_resolution() -> void:
 						clear_cells.append(affected)
 	if reward_anchor >= 0:
 		clear_cells.erase(reward_anchor)
+		board[reward_anchor] = target_color
 
 func animate_pop(value: float) -> void:
 	pop_progress = value
@@ -561,6 +585,82 @@ func draw_profile() -> void:
 	text("Oyuna dön", 746, 22)
 	text("Tur duraklatıldı • İlerleme bu cihazda saklanır", 788, 14, Color("9caac7"))
 
+func special_name(kind: int) -> String:
+	match kind:
+		BOMB: return "Bomba"
+		LIGHTNING: return "Şimşek"
+		_: return "Gökkuşağı"
+
+func draw_special_icon(kind: int, pos: Vector2, radius: float) -> void:
+	var time := elapsed if effects else 0.0
+	draw_arc(pos, radius + 2, 0, TAU, 48, Color(1, 1, 1, 0.85), 1.5, true)
+	if kind == BOMB:
+		draw_circle(pos + Vector2(0, 2), 13, Color("090e22"))
+		draw_circle(pos + Vector2(-2, 0), 10, Color("283652"))
+		draw_circle(pos + Vector2(-5, -4), 3.5, Color("92a4c5"))
+		draw_arc(pos + Vector2(4, -9), 7, -PI * 0.8, -PI * 0.05, 16, Color("ffd166"), 2.5, true)
+		var spark := pos + Vector2(11, -14)
+		for n in 6:
+			var ray := Vector2.from_angle(n * TAU / 6 + time * 2)
+			draw_line(spark + ray * 2, spark + ray * (4.5 + sin(time * 12)), Color("fff4b3"), 1.5, true)
+		draw_circle(spark, 2.3, Color.WHITE)
+	elif kind == LIGHTNING:
+		var bolt := PackedVector2Array([Vector2(3, -17), Vector2(-10, 2), Vector2(-1, 2), Vector2(-4, 17), Vector2(11, -4), Vector2(2, -4)])
+		var outline := PackedVector2Array()
+		for point in bolt:
+			outline.append(pos + point)
+		draw_circle(pos, 17, Color(0.1, 0.3, 0.7, 0.55))
+		draw_colored_polygon(outline, Color("fff4b3"))
+		for n in 3:
+			var angle := time * 2 + n * TAU / 3
+			draw_arc(pos, 19, angle, angle + 0.65, 12, Color(0.7, 1, 1, 0.75), 2, true)
+	else:
+		draw_circle(pos, 17, Color("172139"))
+		for n in 8:
+			var angle := n * TAU / 8 + time * 0.8
+			var color := Color.from_hsv(float(n) / 8, 0.7, 1.0)
+			draw_arc(pos, 13, angle, angle + TAU / 8 - 0.05, 12, color, 5, true)
+			draw_circle(pos + Vector2.from_angle(angle) * 20, 2, color)
+		var star := PackedVector2Array([pos + Vector2(0, -8), pos + Vector2(3, -2), pos + Vector2(8, 0), pos + Vector2(3, 2), pos + Vector2(0, 8), pos + Vector2(-3, 2), pos + Vector2(-8, 0), pos + Vector2(-3, -2)])
+		draw_colored_polygon(star, Color.WHITE)
+
+func draw_special_effect(wave: Dictionary) -> void:
+	var age: float = wave["age"]
+	var pos: Vector2 = wave["pos"]
+	var alpha := clampf(1.0 - age / 0.9, 0.0, 1.0)
+	if wave["kind"] == BOMB:
+		# Concentric blast rings, radial sparks, and a short-lived hot core.
+		for n in 3:
+			var progress := maxf(0.0, age - n * 0.08)
+			draw_arc(pos, 15 + progress * 170, 0, TAU, 64, Color(1, 0.65 + n * 0.12, 0.25, alpha), 5 - n, true)
+		draw_circle(pos, 20 + age * 90, Color(1, 0.5, 0.15, alpha * alpha * 0.18))
+		for n in 16:
+			var ray := Vector2.from_angle(n * TAU / 16)
+			draw_line(pos + ray * (15 + age * 110), pos + ray * (25 + age * 160), Color(1, 0.9, 0.5, alpha), 3 * alpha + 1, true)
+	elif wave["kind"] == LIGHTNING:
+		for layer in 3:
+			var points := PackedVector2Array()
+			for n in 29:
+				points.append(Vector2(ORIGIN.x + n * CELL / 4, pos.y + sin(n * 2.3 + age * 50 + layer) * (7 + layer * 5) * alpha))
+			draw_polyline(points, Color(0.3, 0.85, 1, alpha * 0.18), 18 - layer * 3, true)
+			draw_polyline(points, Color(0.8, 1, 1, alpha), 3 - layer * 0.7, true)
+		for n in 7:
+			var spark := Vector2(ORIGIN.x + (n + 0.5) * CELL, pos.y)
+			draw_line(spark, spark + Vector2(12 * sin(n * 3 + age * 20), -25 * alpha), Color(0.7, 1, 1, alpha), 2, true)
+			draw_arc(spark, 10 + age * 20, 0, TAU, 20, Color(0.6, 0.9, 1, alpha * 0.5), 2, true)
+	else:
+		for n in 8:
+			var angle := n * TAU / 8 + age * 3
+			var color := Color.from_hsv(float(n) / 8, 0.65, 1.0, alpha)
+			draw_arc(pos, 20 + age * 150, angle, angle + TAU / 8, 16, color, 4, true)
+		var targets: PackedVector2Array = wave.get("targets", PackedVector2Array())
+		for n in targets.size():
+			var color := Color.from_hsv(fmod(float(n) / 7 + age, 1.0), 0.6, 1.0, alpha)
+			var tip := pos.lerp(targets[n], minf(1.0, age * 4))
+			draw_line(pos, tip, Color(color, alpha * 0.22), 6, true)
+			draw_circle(tip, 4 * alpha + 1, color)
+			draw_arc(targets[n], 8 + age * 22, 0, TAU, 24, color, 2, true)
+
 func _draw() -> void:
 	if profile_open:
 		draw_profile()
@@ -576,7 +676,7 @@ func _draw() -> void:
 	box(Rect2(37, 137, 406 * remaining / ROUND_SECONDS if timed_mode else 406, 5), accent, 2)
 	text("SKOR  %d" % score, 181, 30, Color.WHITE.lerp(accent, impact))
 	text(message, 211, 14, Color("9caac7"))
-	text("5–6 taş: BOMBA  •  7+ taş: ŞİMŞEK", 151, 10, Color("9caac7"))
+	text("5+: BOMBA  •  7+: ŞİMŞEK  •  9+: GÖKKUŞAĞI", 151, 10, Color("9caac7"))
 	var shake := Vector2(sin(elapsed * 55), cos(elapsed * 49)) * impact * 2 if effects else Vector2.ZERO
 	draw_set_transform(shake)
 	box(Rect2(ORIGIN - Vector2(9, 9), Vector2.ONE * (SIDE * CELL + 18)), Color("172139"), 20)
@@ -596,16 +696,11 @@ func _draw() -> void:
 		draw_circle(pos, radius, palette[board[i]])
 		if radius > 10:
 			draw_circle(pos + Vector2(-7, -9), 5, Color(1, 1, 1, 0.18))
-			if specials[i] == BOMB:
-				draw_circle(pos, 10, Color("15213a"))
-				draw_line(pos + Vector2(5, -7), pos + Vector2(11, -14), Color.WHITE, 2, true)
-				draw_circle(pos + Vector2(12, -15), 2.5 + sin(elapsed * 10) * 0.7, Color("ffd166"))
-			elif specials[i] == LIGHTNING:
-				draw_colored_polygon(PackedVector2Array([pos + Vector2(3, -16), pos + Vector2(-9, 2), pos + Vector2(-1, 2), pos + Vector2(-4, 16), pos + Vector2(10, -3), pos + Vector2(2, -3)]), Color.WHITE)
+			if specials[i] != 0:
+				draw_special_icon(specials[i], pos, radius)
 			else:
 				label_at(["1", "2", "3", "4"][board[i]], pos + Vector2(0, 7), 20, Color("15213a"))
-			if specials[i] != 0:
-				draw_arc(pos, radius + 2, 0, TAU, 40, Color.WHITE, 1.5, true)
+
 	if chain.size() > 1 and not busy:
 		for i in range(1, chain.size()):
 			draw_line(center(chain[i - 1]), center(chain[i]), Color(1, 1, 1, 0.15), 12, true)
@@ -614,18 +709,7 @@ func _draw() -> void:
 		if not busy:
 			draw_arc(center(index), 27, 0, TAU, 40, Color.WHITE, 2, true)
 	for wave in special_waves:
-		var age: float = wave["age"]
-		var pos: Vector2 = wave["pos"]
-		var alpha := 1.0 - age / 0.7
-		if wave["kind"] == BOMB:
-			draw_arc(pos, 15 + age * 140, 0, TAU, 64, Color(1, 0.82, 0.4, alpha), 5 * alpha + 1, true)
-			draw_circle(pos, 15 + age * 60, Color(1, 0.65, 0.3, alpha * 0.12))
-		else:
-			var points := PackedVector2Array()
-			for n in 29:
-				points.append(Vector2(ORIGIN.x + n * CELL / 4, pos.y + sin(n * 2.3 + age * 50) * 10 * alpha))
-			draw_polyline(points, Color(0.4, 0.9, 1, alpha * 0.2), 14, true)
-			draw_polyline(points, Color(0.8, 1, 1, alpha), 3, true)
+		draw_special_effect(wave)
 	for particle in particles:
 		draw_circle(particle["pos"], 3.5, Color(particle["color"], minf(1.0, particle["life"] * 2)))
 	for floater in floaters:
