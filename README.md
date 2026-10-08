@@ -6,13 +6,24 @@ Godot 4.4.1 ile hazırlanmış, telefon ve bilgisayar için 7×7 zincir oyunu pr
 
 - Fareye basılı tutarak veya parmağınla sürükleyerek aynı renk taşları bağla.
 - Yalnızca yatay/dikey komşular seçilebilir; çapraz seçim yoktur.
-- En az 3 taşı seçip bırak: taş başına 10 puan, üçüncüden sonraki her taş için 5 ek puan.
+- En az 3 taşı seçip bırak: taş başına 10 puan, üçüncüden sonraki her taş için 5 ek puan. Hızlı zincirlerde kombo çarpanı uygulanır.
 - Bir önceki taşa dönerek zinciri kısalt. Aynı taş tekrar seçilemez.
 - Taşlar aşağı düşer, üstten yenileri gelir. Animasyon sırasında seçim kilitlenir.
 - Hamle kalmazsa tahta otomatik yenilenir; skor korunur.
 - Yeniden başlat düğmesi skoru sıfırlar ve yeni tahta oluşturur; animasyon sırasında da çalışır.
 - Escape veya uygulamadan ayrılmak etkin seçimi iptal eder.
 - Renklerin üzerindeki rakamlar taş türlerini ayırt etmeye yardımcı olur.
+
+## Heyecan ve efektler
+
+- **60 saniyelik tur:** süre ilk geçerli zincirden sonra başlar. Uygulama odağı kaybolduğunda duraklar.
+- **Kombo:** 4 saniye içinde yeni bir geçerli zincir yap; çarpan x5'e kadar yükselir. Kısa zincir kombo serisini bitirir.
+- **Süre bonusu:** 5+ taş, `min(5, taş sayısı - 2)` saniye kazandırır. Kalan süre en fazla 60 saniyedir.
+- **Rahat mod:** alttaki Mod düğmesi süre sınırını kaldırır; mod değişimi yeni tur başlatır.
+- **Animasyonlar:** seçilen taşlarda parıltı, küçülerek patlama, renkli parçacıklar, yükselen puanlar ve hafif tahta sarsıntısı.
+- **Sade efekt seçeneği:** alttaki Efektler düğmesi parıltı, parçacık ve sarsıntıyı kapatır; temel düşme/patlama kalır.
+- **Tur özeti:** süre bitince puan, en uzun zincir ve başarılı hamle sayısı gösterilir.
+- **Rekor:** bu tarayıcıda/cihazda saklanır. Tarayıcı verilerinin silinmesi veya gizli mod kalıcılığı etkileyebilir; modlar ortak rekor kullanır.
 
 ## Godot'ta aç
 
@@ -46,7 +57,7 @@ GitHub deposunda **Settings → Pages → Build and deployment → Source → Gi
 Başarılı dağıtımdan sonra hedef oyun adresi:
 https://halilacikgozz.github.io/color-chain-game/
 
-Bu dosyaların hazırlanması, GitHub'a yükleme veya canlı yayın yapıldığı anlamına gelmez.
+Bu depodaki `main` dalına yapılan değişiklikler, testler geçtikten sonra aynı oyun adresine otomatik yayınlanır.
 
 ## Yerel web testi
 
