@@ -693,7 +693,7 @@ func leave_campaign() -> void:
 	restart()
 
 func setup_stage() -> void:
-	rng.seed = 8988 if stage == 6 else 8123 + stage * 173
+	rng.seed = 8123 + stage * 173
 	moves_left = int(LEVELS[stage]["moves"])
 	for i in 49:
 		board[i] = rng.randi_range(0, active_colors() - 1)
@@ -715,6 +715,10 @@ func setup_stage() -> void:
 		var pick := rng.randi_range(0, candidates.size() - 1)
 		ice[candidates[pick]] = 1
 		candidates.remove_at(pick)
+	if stage == 6:
+		ice.fill(0)
+		for i in range(7, 19):
+			ice[i] = 1
 	ensure_move()
 	message = LEVELS[stage]["hint"]
 
