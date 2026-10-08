@@ -1,5 +1,7 @@
 extends Node2D
 
+const BOMB := 1
+const LIGHTNING := 2
 const SIDE := 7
 const CELL := 58.0
 const ORIGIN := Vector2(37, 230)
@@ -32,6 +34,12 @@ const COMBO_WINDOW := 4.0
 var board: Array[int] = []
 var chain: Array[int] = []
 var offsets: Array[float] = []
+var specials: Array[int] = []
+var clear_cells: Array[int] = []
+var resolution_active := false
+var reward_anchor := -1
+var reward_kind := 0
+var special_waves: Array[Dictionary] = []
 var score := 0
 var best := 0
 var timed_best := 0
@@ -197,15 +205,26 @@ func restart() -> void:
 	particles.clear()
 	floaters.clear()
 	popping.clear()
+	clear_cells.clear()
+	special_waves.clear()
+	resolution_active = false
+	reward_anchor = -1
+	reward_kind = 0
 	chain.clear()
 	board.resize(SIDE * SIDE)
+	specials.resize(SIDE * SIDE)
+	specials.fill(0)
 	offsets.resize(SIDE * SIDE)
 	offsets.fill(0.0)
 	for i in board.size():
 		board[i] = rng.randi_range(0, COLORS.size() - 1)
 	ensure_move()
-	message = "Sürükle ve ilk zincirinle turu başlat!" if timed_mode else "Rahat mod • Süre sınırı yok"
+	board[1] = board[0]
+	board[2] = board[0]
+	specials[1] = BOMB
+	message = "Bomba taşını aynı renkte 3+ zincire kat!" if timed_mode else "Rahat mod • Bomba ile başla"
 	queue_redraw()
+
 
 func _process(delta: float) -> void:
 	elapsed += delta
@@ -218,6 +237,10 @@ func _process(delta: float) -> void:
 			remaining = maxf(0.0, remaining - delta)
 			if remaining <= 0.0 and not busy:
 				end_round()
+	for i in range(special_waves.size() - 1, -1, -1):
+		special_waves[i]["age"] += delta
+		if special_waves[i]["age"] >= 0.7:
+			special_waves.remove_at(i)
 	for i in range(particles.size() - 1, -1, -1):
 		particles[i]["life"] -= delta
 		particles[i]["pos"] += particles[i]["velocity"] * delta
@@ -321,6 +344,7 @@ func press(pos: Vector2, id: int) -> void:
 		effects = not effects
 		particles.clear()
 		floaters.clear()
+		special_waves.clear()
 		impact = 0.0
 		queue_redraw()
 		return
@@ -348,7 +372,9 @@ func release_pointer() -> void:
 	var count := chain.size()
 	combo = mini(5, combo + 1) if combo_left > 0.0 else 1
 	combo_left = COMBO_WINDOW
-	var gained := (count * 10 + maxi(0, count - 3) * 5) * combo
+	prepare_resolution()
+	var extra := maxi(0, clear_cells.size() + (1 if reward_anchor >= 0 else 0) - count)
+	var gained := (count * 10 + maxi(0, count - 3) * 5 + extra * 10) * combo
 	score += gained
 	best = maxi(best, score)
 	longest = maxi(longest, count)
@@ -357,23 +383,59 @@ func release_pointer() -> void:
 	remaining = minf(ROUND_SECONDS, remaining + bonus)
 	message = "%d taş • +%d puan%s" % [count, gained, " • +%d sn" % bonus if bonus > 0 else ""]
 	update_progress(count, gained)
+	if reward_kind != 0:
+		message = "%s kazandın! Sonraki zincirde kullan." % ("Şimşek" if reward_kind == LIGHTNING else "Bomba")
 	var middle := center(chain[chain.size() / 2])
 	if effects:
 		floaters.append({"pos": middle, "text": "+%d" % gained, "life": 1.0, "color": Color("ffd166")})
 		if bonus > 0:
 			floaters.append({"pos": middle + Vector2(0, 30), "text": "+%d SANİYE" % bonus, "life": 1.2, "color": Color("58d8ce")})
 		impact = minf(1.0, count / 8.0)
-		for index in chain:
+		for index in clear_cells:
 			for n in 8:
 				var angle := rng.randf_range(0.0, TAU)
 				particles.append({"pos": center(index), "velocity": Vector2.from_angle(angle) * rng.randf_range(60, 150), "life": rng.randf_range(0.35, 0.65), "color": palette[board[index]]})
-	popping.assign(chain)
+	popping.assign(clear_cells)
 	fall_tween = create_tween()
 	fall_tween.tween_method(animate_pop, 0.0, 1.0, 0.12)
 	fall_tween.tween_callback(start_fall)
 	fall_tween.tween_method(animate_fall, 1.0, 0.0, 0.30).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	fall_tween.tween_callback(finish_fall)
 	queue_redraw()
+
+func prepare_resolution() -> void:
+	clear_cells.assign(chain)
+	resolution_active = true
+	reward_anchor = chain.back() if chain.size() >= 5 else -1
+	reward_kind = LIGHTNING if chain.size() >= 7 else (BOMB if chain.size() >= 5 else 0)
+	var activated: Array[int] = []
+	var cursor := 0
+	while cursor < clear_cells.size():
+		var index: int = clear_cells[cursor]
+		cursor += 1
+		if specials[index] == 0 or activated.has(index):
+			continue
+		activated.append(index)
+		if effects:
+			special_waves.append({"kind": specials[index], "pos": center(index), "age": 0.0})
+		if specials[index] == LIGHTNING:
+			var row := index / SIDE
+			for x in SIDE:
+				var affected := row * SIDE + x
+				if not clear_cells.has(affected):
+					clear_cells.append(affected)
+		else:
+			var pos := Vector2i(index % SIDE, index / SIDE)
+			for dy in range(-1, 2):
+				for dx in range(-1, 2):
+					var cell := pos + Vector2i(dx, dy)
+					if cell.x < 0 or cell.y < 0 or cell.x >= SIDE or cell.y >= SIDE:
+						continue
+					var affected := cell.y * SIDE + cell.x
+					if not clear_cells.has(affected):
+						clear_cells.append(affected)
+	if reward_anchor >= 0:
+		clear_cells.erase(reward_anchor)
 
 func animate_pop(value: float) -> void:
 	pop_progress = value
@@ -386,19 +448,26 @@ func start_fall() -> void:
 	pop_progress = 0.0
 
 func collapse() -> void:
+	var removed: Array[int] = clear_cells if resolution_active else chain
 	for x in SIDE:
 		var target := SIDE - 1
 		for y in range(SIDE - 1, -1, -1):
 			var source := y * SIDE + x
-			if not chain.has(source):
+			if not removed.has(source):
 				board[target * SIDE + x] = board[source]
+				specials[target * SIDE + x] = reward_kind if source == reward_anchor and resolution_active else specials[source]
 				offsets[target * SIDE + x] = float(y - target) * CELL
 				target -= 1
 		var missing := target + 1
 		while target >= 0:
 			board[target * SIDE + x] = rng.randi_range(0, COLORS.size() - 1)
+			specials[target * SIDE + x] = 0
 			offsets[target * SIDE + x] = -float(missing) * CELL
 			target -= 1
+	clear_cells.clear()
+	resolution_active = false
+	reward_anchor = -1
+	reward_kind = 0
 
 func animate_fall(value: float) -> void:
 	fall_progress = value
@@ -506,7 +575,8 @@ func _draw() -> void:
 	box(Rect2(37, 137, 406, 5), Color("172139"), 2)
 	box(Rect2(37, 137, 406 * remaining / ROUND_SECONDS if timed_mode else 406, 5), accent, 2)
 	text("SKOR  %d" % score, 181, 30, Color.WHITE.lerp(accent, impact))
-	text(message, 211, 15, Color("9caac7"))
+	text(message, 211, 14, Color("9caac7"))
+	text("5–6 taş: BOMBA  •  7+ taş: ŞİMŞEK", 151, 10, Color("9caac7"))
 	var shake := Vector2(sin(elapsed * 55), cos(elapsed * 49)) * impact * 2 if effects else Vector2.ZERO
 	draw_set_transform(shake)
 	box(Rect2(ORIGIN - Vector2(9, 9), Vector2.ONE * (SIDE * CELL + 18)), Color("172139"), 20)
@@ -526,7 +596,16 @@ func _draw() -> void:
 		draw_circle(pos, radius, palette[board[i]])
 		if radius > 10:
 			draw_circle(pos + Vector2(-7, -9), 5, Color(1, 1, 1, 0.18))
-			label_at(["1", "2", "3", "4"][board[i]], pos + Vector2(0, 7), 20, Color("15213a"))
+			if specials[i] == BOMB:
+				draw_circle(pos, 10, Color("15213a"))
+				draw_line(pos + Vector2(5, -7), pos + Vector2(11, -14), Color.WHITE, 2, true)
+				draw_circle(pos + Vector2(12, -15), 2.5 + sin(elapsed * 10) * 0.7, Color("ffd166"))
+			elif specials[i] == LIGHTNING:
+				draw_colored_polygon(PackedVector2Array([pos + Vector2(3, -16), pos + Vector2(-9, 2), pos + Vector2(-1, 2), pos + Vector2(-4, 16), pos + Vector2(10, -3), pos + Vector2(2, -3)]), Color.WHITE)
+			else:
+				label_at(["1", "2", "3", "4"][board[i]], pos + Vector2(0, 7), 20, Color("15213a"))
+			if specials[i] != 0:
+				draw_arc(pos, radius + 2, 0, TAU, 40, Color.WHITE, 1.5, true)
 	if chain.size() > 1 and not busy:
 		for i in range(1, chain.size()):
 			draw_line(center(chain[i - 1]), center(chain[i]), Color(1, 1, 1, 0.15), 12, true)
@@ -534,6 +613,19 @@ func _draw() -> void:
 	for index in chain:
 		if not busy:
 			draw_arc(center(index), 27, 0, TAU, 40, Color.WHITE, 2, true)
+	for wave in special_waves:
+		var age: float = wave["age"]
+		var pos: Vector2 = wave["pos"]
+		var alpha := 1.0 - age / 0.7
+		if wave["kind"] == BOMB:
+			draw_arc(pos, 15 + age * 140, 0, TAU, 64, Color(1, 0.82, 0.4, alpha), 5 * alpha + 1, true)
+			draw_circle(pos, 15 + age * 60, Color(1, 0.65, 0.3, alpha * 0.12))
+		else:
+			var points := PackedVector2Array()
+			for n in 29:
+				points.append(Vector2(ORIGIN.x + n * CELL / 4, pos.y + sin(n * 2.3 + age * 50) * 10 * alpha))
+			draw_polyline(points, Color(0.4, 0.9, 1, alpha * 0.2), 14, true)
+			draw_polyline(points, Color(0.8, 1, 1, alpha), 3, true)
 	for particle in particles:
 		draw_circle(particle["pos"], 3.5, Color(particle["color"], minf(1.0, particle["life"] * 2)))
 	for floater in floaters:
