@@ -23,10 +23,10 @@ const LEVELS := [
 	{"name": "İlk Buz", "moves": 16, "goal": 280, "ice": 6, "colors": 3, "hint": "Buzlu taşı seç veya patlamayla buzu kır."},
 	{"name": "Donmuş Çiçekler", "moves": 16, "goal": 360, "ice": 8, "colors": 3, "hint": "Hem puan hedefini tamamla hem tüm buzu kır."},
 	{"name": "Şimşek Yolu", "moves": 17, "goal": 450, "ice": 10, "colors": 4, "hint": "7 taş bağla; şimşekle bir satırı temizle."},
-	{"name": "Kristal Yapraklar", "moves": 17, "goal": 550, "ice": 12, "colors": 4, "hint": "Özel taşları buzlu bölgeler için sakla."},
-	{"name": "Renk Fırtınası", "moves": 18, "goal": 650, "ice": 14, "colors": 4, "hint": "Bombalar başka özel taşları tetikleyebilir."},
-	{"name": "Gökkuşağı Köprüsü", "moves": 18, "goal": 800, "ice": 16, "colors": 4, "hint": "9 taşlık zincir gökkuşağı kazandırır."},
-	{"name": "Bahçenin Kalbi", "moves": 20, "goal": 1000, "ice": 18, "colors": 4, "hint": "Final: tüm buzları kır ve 1000 puana ulaş!"}
+	{"name": "Kristal Yapraklar", "moves": 20, "goal": 550, "ice": 12, "colors": 4, "hint": "Özel taşları buzlu bölgeler için sakla."},
+	{"name": "Renk Fırtınası", "moves": 21, "goal": 650, "ice": 14, "colors": 4, "hint": "Bombalar başka özel taşları tetikleyebilir."},
+	{"name": "Gökkuşağı Köprüsü", "moves": 22, "goal": 800, "ice": 16, "colors": 4, "hint": "9 taşlık zincir gökkuşağı kazandırır."},
+	{"name": "Bahçenin Kalbi", "moves": 24, "goal": 1000, "ice": 18, "colors": 4, "hint": "Final: tüm buzları kır ve 1000 puana ulaş!"}
 ]
 const PROFILE_BUTTON := Rect2(37, 60, 406, 25)
 const PROFILE_BACK := Rect2(37, 710, 406, 56)
