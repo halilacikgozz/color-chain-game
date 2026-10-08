@@ -693,7 +693,7 @@ func leave_campaign() -> void:
 	restart()
 
 func setup_stage() -> void:
-	rng.seed = 8123 + stage * 173
+	rng.seed = 8988 if stage == 6 else 8123 + stage * 173
 	moves_left = int(LEVELS[stage]["moves"])
 	for i in 49:
 		board[i] = rng.randi_range(0, active_colors() - 1)
