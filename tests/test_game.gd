@@ -15,6 +15,7 @@ func run_tests() -> void:
 	game.save_path = "user://color_chain_test.cfg"
 	DirAccess.remove_absolute(game.save_path)
 	root.add_child(game)
+	game.map_open = false
 	game.specials.fill(0)
 	check(game.board.size() == 49 and game.has_move(), "Initial board must be full and playable")
 	check(not game.adjacent(6, 7), "Rows must not wrap")
@@ -262,7 +263,133 @@ func run_tests() -> void:
 	game.prepare_resolution()
 	check(game.clear_cells.size() == 49, "Rainbow-only chains resolve with a deterministic fallback color")
 	game.restart()
+	game.level_stars.fill(0)
+	game.level_bests.fill(0)
+	game.map_open = false
+	check(not game.start_stage(1), "Locked stages cannot be started")
+	check(game.start_stage(0), "First stage starts unlocked")
+	var first_board: Array = game.board.duplicate()
+	game.restart()
+	check(game.board == first_board and game.moves_left == 12, "Retries restore the same seeded board and budget")
+	game.chain.assign([0,1])
+	game.release_pointer()
+	check(game.moves_left == 12, "Invalid chains do not spend stage moves")
+	game.score = 90
+	game.moves_left = 6
+	game.check_stage_end()
+	check(game.stage_won and game.stage_rating == 3 and game.stage_unlocked(1), "Goal completion grants stars and unlocks next stage")
+	var win_xp: int = game.xp
+	game.check_stage_end()
+	check(game.xp == win_xp, "Winning cannot grant XP twice")
+	game.restart()
+	game.score = 90
+	game.moves_left = 0
+	game.check_stage_end()
+	check(game.stage_won and game.stage_rating == 1 and game.level_stars[0] == 3, "Win on last move succeeds and never lowers saved stars")
+	game.start_stage(1)
+	game.moves_left = 0
+	game.score = 0
+	game.check_stage_end()
+	check(game.ended and not game.stage_won and game.level_stars[1] == 0, "Running out of moves fails without awarding stars")
+	game.level_stars[1] = 1
+	game.level_stars[2] = 1
+	game.start_stage(3)
+	check(game.ice_left() == 6, "Ice stages create the configured goal")
+	game.specials.fill(0)
+	game.board.fill(0)
+	game.ice.fill(0)
+	game.ice[0] = 1
+	game.ice[1] = 1
+	game.chain.assign([0,1,2])
+	game.prepare_resolution()
+	check(game.ice_left() == 0, "Selected ice cells break once")
+	game.collapse()
+	game.score = 9999
+	game.ice[10] = 1
+	game.check_stage_end()
+	check(not game.stage_won, "Score alone cannot win an ice stage")
+	game.ice[10] = 0
+	game.check_stage_end()
+	check(game.stage_won, "Combined score and ice goals complete together")
+	game.level_stars.fill(1)
+	game.level_stars[9] = 0
+	check(not game.choose_theme(3), "Garden theme is locked before final stage")
+	game.start_stage(9)
+	game.ice.fill(0)
+	game.score = 1000
+	game.check_stage_end()
+	check(game.garden_unlocked() and game.choose_theme(3), "World completion unlocks garden theme")
+	game.save_best()
+	var campaign_restored = load("res://scripts/game.gd").new()
+	campaign_restored.save_path = game.save_path
+	campaign_restored.load_progress()
+	check(campaign_restored.level_stars == game.level_stars and campaign_restored.theme_index == 3, "Campaign stars and garden theme persist")
+	campaign_restored.free()
+	game.leave_campaign()
+	check(not game.campaign_mode and not game.map_open, "Free play remains available")
+	game.effects = false
+	game.level_stars.fill(1)
+	for level_index in 10:
+		game.start_stage(level_index)
+		for turn in int(game.LEVELS[level_index]["moves"]):
+			if game.ended:
+				break
+			var selected := solve_move(game)
+			if selected.size() < 3:
+				break
+			game.chain.assign(selected)
+			game.release_pointer()
+			game.fall_tween.kill()
+			game.start_fall()
+			game.finish_fall()
+		check(game.stage_won, "Seeded stage %d has a valid solution within its move budget" % (level_index + 1))
 	DirAccess.remove_absolute(game.save_path)
 	game.queue_free()
 	print("Color Chain tests: %d failures" % failures)
 	quit(1 if failures else 0)
+
+var search_best: Array[int] = []
+var search_value := -1
+var search_budget := 0
+
+func solve_move(game) -> Array[int]:
+	search_best.clear()
+	search_value = -1
+	search_budget = 12000
+	for start in 49:
+		var path: Array[int] = [start]
+		search_path(game, path, game.board[start] if game.specials[start] != game.RAINBOW else -1)
+	return search_best.duplicate()
+
+func search_path(game, path: Array[int], color: int) -> void:
+	search_budget -= 1
+	if search_budget <= 0:
+		return
+	if path.size() >= 3:
+		var value := path.size() * 8
+		var hit: Array[int] = path.duplicate()
+		for index in path:
+			if game.specials[index] == game.BOMB:
+				for other in 49:
+					if absi(other % 7 - index % 7) <= 1 and absi(other / 7 - index / 7) <= 1 and not hit.has(other):
+						hit.append(other)
+			elif game.specials[index] == game.LIGHTNING:
+				for x in 7:
+					if not hit.has(index / 7 * 7 + x): hit.append(index / 7 * 7 + x)
+			elif game.specials[index] == game.RAINBOW:
+				for other in 49:
+					if game.board[other] == color and not hit.has(other): hit.append(other)
+		for index in hit:
+			value += 150 if game.ice[index] > 0 else 1
+		if value > search_value:
+			search_value = value
+			search_best.assign(path)
+	if path.size() >= 9:
+		return
+	var last: int = path.back()
+	for next in [last - 7, last + 7, last - 1, last + 1]:
+		if next < 0 or next >= 49 or path.has(next) or not game.adjacent(last,next): continue
+		if game.specials[next] != game.RAINBOW and color != -1 and game.board[next] != color: continue
+		path.append(next)
+		search_path(game,path,game.board[next] if color == -1 and game.specials[next] != game.RAINBOW else color)
+		path.pop_back()
