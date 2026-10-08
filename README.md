@@ -38,6 +38,17 @@ Godot 4.4.1 ile hazırlanmış, telefon ve bilgisayar için 7×7 zincir oyunu pr
 - Görev ve seviyeler bu cihazdaki kişisel ilerlemedir. Başka oyuncularla ortak bir çevrimiçi sıralama bulunmaz.
 - Önceki sürümün genel rekoru korunur; ayrı süreli rekor yeni sürümdeki süreli hamlelerle oluşur.
 
+## Özel taşlar
+
+- **Bomba:** 5–6 taşlık zincirden kazanılır; çevresindeki 3×3 alanı temizler. Altın renkli halka ve şok dalgası animasyonu vardır.
+- **Şimşek:** 7 veya daha uzun zincirden kazanılır; bulunduğu satırın tamamını temizler. Satır boyunca elektrik animasyonu oynar.
+- Ödül, zincirin son taşının yerinde oluşur ve düşme sırasında diğer taşlarla birlikte hareket eder. Bu hamlede yeni kazanılan taş etkinleşmez.
+- Özel taş aynı rengin en az 3 taşlık geçerli zincirine katıldığında etkinleşir. Kısa zincir etkisini tetiklemez.
+- Patlamanın ulaştığı başka özel taşlar da etkinleşir; her hücre bir kez sayılır. Seçili zincirin dışındaki temizlenen her taş kombo öncesinde 10 ek puan verir.
+- Her yeni turda sol üstte aynı renkte üç taş ve bir başlangıç bombası bulunur.
+- Sade efektlerde özel taşların simgeleri ve oyun etkileri korunur; şok dalgası ve elektrik çizgileri kapatılır.
+- Özel taşlar o tura aittir; turu yenilemek tahtayı sıfırlar. Seviye, yıldız ve tema kayıtları korunur.
+
 ## Godot'ta aç
 
 1. Godot **4.4.1 Standard** sürümünü aç (C#/.NET gerekmez).
