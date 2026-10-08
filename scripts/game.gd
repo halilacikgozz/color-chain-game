@@ -719,6 +719,7 @@ func setup_stage() -> void:
 		ice.fill(0)
 		for i in range(7, 19):
 			ice[i] = 1
+			board[i] = 0
 	ensure_move()
 	message = LEVELS[stage]["hint"]
 
