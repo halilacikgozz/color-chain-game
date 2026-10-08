@@ -342,7 +342,7 @@ func run_tests() -> void:
 			game.fall_tween.kill()
 			game.start_fall()
 			game.finish_fall()
-		check(game.stage_won, "Seeded stage %d has a valid solution within its move budget" % (level_index + 1))
+		check(game.stage_won, "Seeded stage %d solution: score=%d ice=%d moves=%d" % [level_index + 1, game.score, game.ice_left(), game.moves_left])
 	DirAccess.remove_absolute(game.save_path)
 	game.queue_free()
 	print("Color Chain tests: %d failures" % failures)
@@ -355,8 +355,8 @@ var search_budget := 0
 func solve_move(game) -> Array[int]:
 	search_best.clear()
 	search_value = -1
-	search_budget = 12000
 	for start in 49:
+		search_budget = 1000
 		var path: Array[int] = [start]
 		search_path(game, path, game.board[start] if game.specials[start] != game.RAINBOW else -1)
 	return search_best.duplicate()
