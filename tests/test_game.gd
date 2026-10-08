@@ -12,6 +12,8 @@ func _initialize() -> void:
 
 func run_tests() -> void:
 	var game = load("res://scripts/game.gd").new()
+	game.save_path = "user://color_chain_test.cfg"
+	DirAccess.remove_absolute(game.save_path)
 	root.add_child(game)
 	check(game.board.size() == 49 and game.has_move(), "Initial board must be full and playable")
 	check(not game.adjacent(6, 7), "Rows must not wrap")
@@ -99,6 +101,50 @@ func run_tests() -> void:
 	game.focused = false
 	game._process(5.0)
 	check(game.remaining == 60.0, "Timer pauses when focus is lost")
+	game.focused = true
+	game.restart()
+	game.xp = 0
+	game.stars = 0
+	game.quests_done = 0
+	game.quest_progress = 0
+	game.combo = 1
+	game.update_progress(3, 30)
+	check(game.stars == 1 and game.quests_done == 1 and game.xp == 41, "First quest grants one star and bonus XP")
+	for i in 5:
+		game.update_progress(3, 30)
+	check(game.stars == 2 and game.quests_done == 2, "Move quest rewards only after five valid chains")
+	check(not game.choose_theme(1), "Locked themes cannot be equipped")
+	game.stars = 3
+	check(game.choose_theme(1), "Three stars unlock Neon")
+	var earned_xp: int = game.xp
+	game.restart()
+	check(game.xp == earned_xp and game.stars == 3 and game.theme_index == 1, "Restart retains progression and equipped theme")
+	var restored = load("res://scripts/game.gd").new()
+	restored.save_path = game.save_path
+	restored.load_progress()
+	check(restored.xp == game.xp and restored.theme_index == 1 and restored.stars == 3, "Save and load restore progression")
+	restored.free()
+	game.xp = 250
+	check(game.player_level() == 3, "Every 100 XP raises level")
+	game.timed_mode = false
+	game.timed_best = 0
+	game.score = 1000
+	game.update_progress(3, 30)
+	check(game.timed_best == 0, "Relaxed play cannot raise timed medal record")
+	game.timed_mode = true
+	game.update_progress(3, 30)
+	check(game.timed_best == 1000 and game.medal(1000) == "ALTIN", "Timed scores earn medals")
+	game.profile_open = true
+	game.started = true
+	game.remaining = 20.0
+	game._process(2.0)
+	check(game.remaining == 20.0, "Rewards screen pauses timer")
+	game.select_cell(0)
+	check(game.chain.is_empty(), "Rewards screen blocks board selection")
+	game.quests_done = 100000
+	game.quest_progress = 0
+	check(game.quest_target() > 0, "Quest rotation remains valid after many completions")
+	DirAccess.remove_absolute(game.save_path)
 	game.queue_free()
 	print("Color Chain tests: %d failures" % failures)
 	quit(1 if failures else 0)
