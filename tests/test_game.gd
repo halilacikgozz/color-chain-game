@@ -15,6 +15,7 @@ func run_tests() -> void:
 	game.save_path = "user://color_chain_test.cfg"
 	DirAccess.remove_absolute(game.save_path)
 	root.add_child(game)
+	game.specials.fill(0)
 	check(game.board.size() == 49 and game.has_move(), "Initial board must be full and playable")
 	check(not game.adjacent(6, 7), "Rows must not wrap")
 	check(not game.adjacent(0, 8), "Diagonal selection is forbidden")
@@ -59,6 +60,7 @@ func run_tests() -> void:
 	game.select_cell(2)
 	game.release_pointer()
 	game.restart()
+	game.specials.fill(0)
 	await create_timer(0.6).timeout
 	check(game.score == 0 and not game.busy and game.chain.is_empty(), "Restart cancels animation and clears score")
 	game.board.fill(0)
@@ -91,18 +93,21 @@ func run_tests() -> void:
 	game.release_pointer()
 	check(game.score == final_score and game.chain.is_empty(), "Ended rounds reject input")
 	game.restart()
+	game.specials.fill(0)
 	game.timed_mode = false
 	game.started = true
 	game._process(65.0)
 	check(not game.ended, "Relaxed mode has no deadline")
 	game.timed_mode = true
 	game.restart()
+	game.specials.fill(0)
 	game.started = true
 	game.focused = false
 	game._process(5.0)
 	check(game.remaining == 60.0, "Timer pauses when focus is lost")
 	game.focused = true
 	game.restart()
+	game.specials.fill(0)
 	game.xp = 0
 	game.stars = 0
 	game.quests_done = 0
@@ -118,6 +123,7 @@ func run_tests() -> void:
 	check(game.choose_theme(1), "Three stars unlock Neon")
 	var earned_xp: int = game.xp
 	game.restart()
+	game.specials.fill(0)
 	check(game.xp == earned_xp and game.stars == 3 and game.theme_index == 1, "Restart retains progression and equipped theme")
 	var restored = load("res://scripts/game.gd").new()
 	restored.save_path = game.save_path
@@ -144,6 +150,61 @@ func run_tests() -> void:
 	game.quests_done = 100000
 	game.quest_progress = 0
 	check(game.quest_target() > 0, "Quest rotation remains valid after many completions")
+	game.restart()
+	check(game.specials[1] == game.BOMB and game.board[0] == game.board[1] and game.board[1] == game.board[2], "Each round provides a playable starter bomb")
+	game.specials.fill(0)
+	game.board.fill(0)
+	game.chain.assign([0, 1, 2, 3, 4])
+	game.prepare_resolution()
+	check(game.reward_kind == game.BOMB and not game.clear_cells.has(4), "Five tiles reserve a bomb reward")
+	game.collapse()
+	check(game.specials[4] == game.BOMB and game.specials.count(game.BOMB) == 1, "Bomb reward survives refill")
+	game.specials.fill(0)
+	game.chain.assign([0, 1, 2, 3, 4, 5, 6])
+	game.prepare_resolution()
+	game.collapse()
+	check(game.specials[6] == game.LIGHTNING, "Seven tiles create lightning")
+	game.specials.fill(0)
+	game.specials[0] = game.BOMB
+	game.chain.assign([0, 1, 2])
+	game.prepare_resolution()
+	check(game.clear_cells.size() == 5 and game.clear_cells.has(7) and game.clear_cells.has(8), "Corner bomb clips its blast to board bounds")
+	game.collapse()
+	game.specials.fill(0)
+	game.specials[24] = game.LIGHTNING
+	game.chain.assign([23, 24, 25])
+	game.prepare_resolution()
+	check(game.clear_cells.size() == 7 and game.clear_cells.has(21) and game.clear_cells.has(27), "Lightning clears its complete row")
+	game.collapse()
+	game.specials.fill(0)
+	game.specials[24] = game.BOMB
+	game.specials[25] = game.LIGHTNING
+	game.chain.assign([17, 24, 31])
+	game.prepare_resolution()
+	check(game.clear_cells.size() == 13 and game.clear_cells.has(21) and game.clear_cells.has(27), "Bomb triggers nearby lightning with unique cells")
+	game.collapse()
+	check(game.specials.count(game.BOMB) == 0 and game.specials.count(game.LIGHTNING) == 0, "Triggered special tiles are consumed")
+	game.specials.fill(0)
+	game.specials[0] = game.LIGHTNING
+	game.chain.assign([42])
+	game.collapse()
+	check(game.specials[7] == game.LIGHTNING, "Special identity follows gravity")
+	game.restart()
+	game.specials.fill(0)
+	game.board.fill(0)
+	game.specials[0] = game.BOMB
+	game.select_cell(0)
+	game.select_cell(1)
+	game.release_pointer()
+	check(game.specials[0] == game.BOMB and game.score == 0, "Short chains cannot activate special tiles")
+	game.select_cell(0)
+	game.select_cell(1)
+	game.select_cell(2)
+	game.release_pointer()
+	check(game.score == 50, "Blast bonus counts each additional cleared cell once")
+	game.restart()
+	await create_timer(0.6).timeout
+	check(not game.resolution_active and game.clear_cells.is_empty() and game.special_waves.is_empty(), "Restart cancels pending special effects")
 	DirAccess.remove_absolute(game.save_path)
 	game.queue_free()
 	print("Color Chain tests: %d failures" % failures)
