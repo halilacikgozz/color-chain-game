@@ -199,7 +199,7 @@ func release_pointer() -> void:
 		return
 	if chain.size() < 3:
 		chain.clear()
-		message = "En az 3 taş bağla; 5+ taş süre kazandırır."
+		message = "En az 3 taş bağla; 5+ taş süre kazandırır." if timed_mode else "En az 3 taş bağla; hızlı zincirlerle kombo yap."
 		combo = 0
 		combo_left = 0.0
 		queue_redraw()
@@ -370,7 +370,7 @@ func _draw() -> void:
 		text("KOMBO x%d" % combo, 662, 22, Color("ffd166"))
 		box(Rect2(145, 672, 190 * combo_left / COMBO_WINDOW, 3), Color("ffd166"), 1)
 	else:
-		text("Zincir: %d  •  5+ taş = süre bonusu" % chain.size(), 662, 16, Color("9caac7"))
+		text(("Zincir: %d  •  5+ taş = süre bonusu" if timed_mode else "Zincir: %d  •  Hızlı zincir = kombo") % chain.size(), 662, 16, Color("9caac7"))
 	box(RESTART, Color("526bd8"))
 	text("Tekrar oyna" if ended else "Yeniden başlat", 723, 21)
 	box(MODE_BUTTON, Color("172139"), 9)
