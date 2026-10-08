@@ -41,7 +41,11 @@ Godot 4.4.1 ile hazırlanmış, telefon ve bilgisayar için 7×7 zincir oyunu pr
 ## Özel taşlar
 
 - **Bomba:** 5–6 taşlık zincirden kazanılır; çevresindeki 3×3 alanı temizler. Altın renkli halka ve şok dalgası animasyonu vardır.
-- **Şimşek:** 7 veya daha uzun zincirden kazanılır; bulunduğu satırın tamamını temizler. Satır boyunca elektrik animasyonu oynar.
+- **Şimşek:** 7–8 taşlık zincirden kazanılır; bulunduğu satırın tamamını temizler. Satır boyunca elektrik animasyonu oynar.
+- **Gökkuşağı:** 9 veya daha uzun zincirden kazanılır. Her renkle bağlanır; zincirdeki ilk normal taşın rengini seçer ve tahtadaki o renkteki tüm taşları temizler. Farklı iki normal rengi tek zincirde birleştirmez.
+- Gökkuşağı ile başlayan seçimde ilk normal taş rengi belirler. Geri izleyerek o taşı kaldırırsan yeniden renk seçebilirsin. Yalnızca gökkuşağı taşlarından oluşan zincirde ilk taşın alttaki rengi kullanılır.
+- Görseller: gölgeli bomba gövdesi, yanan fitil ve kıvılcımlar; ışıklı şimşek ve dönen elektrik yayları; çok renkli gökkuşağı halkası ve yıldız çekirdeği.
+- Animasyonlar: katmanlı patlama halkaları ve radyal kıvılcımlar, dallanan elektrik şeritleri, aynı renkteki hedeflere uzanan gökkuşağı izleri.
 - Ödül, zincirin son taşının yerinde oluşur ve düşme sırasında diğer taşlarla birlikte hareket eder. Bu hamlede yeni kazanılan taş etkinleşmez.
 - Özel taş aynı rengin en az 3 taşlık geçerli zincirine katıldığında etkinleşir. Kısa zincir etkisini tetiklemez.
 - Patlamanın ulaştığı başka özel taşlar da etkinleşir; her hücre bir kez sayılır. Seçili zincirin dışındaki temizlenen her taş kombo öncesinde 10 ek puan verir.
