@@ -30,10 +30,11 @@ jobs:
       - name: Export web build
         run: |
           mkdir -p build/web
-          godot --headless --path . --export-release Web build/web/index.html
+          godot --headless --path . --export-release Web "build/web/game-${GITHUB_SHA}.html"
+          cp "build/web/game-${GITHUB_SHA}.html" build/web/index.html
           test -s build/web/index.html
-          test -s build/web/index.wasm
-          test -s build/web/index.pck
+          test -s "build/web/game-${GITHUB_SHA}.wasm"
+          test -s "build/web/game-${GITHUB_SHA}.pck"
           touch build/web/.nojekyll
       - uses: actions/upload-pages-artifact@v4
         if: github.event_name != 'pull_request'
