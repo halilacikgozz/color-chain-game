@@ -167,6 +167,7 @@ func _ready() -> void:
 	level_bests.resize(30)
 	level_bests.fill(0)
 	load_progress()
+	save_best()
 	restart()
 	map_open = true
 
@@ -192,6 +193,9 @@ func load_progress() -> void:
 		theme_index = 0
 	palette = PALETTES[theme_index]
 	crystals = maxi(0, int(config.get_value("collection", "crystals", 0)))
+	if not config.has_section_key("collection", "crystals"):
+		for rating in level_stars:
+			if rating > 0: crystals += 25
 	owned_cosmetics.assign(config.get_value("collection", "owned", [0]))
 	if not owned_cosmetics.has(0): owned_cosmetics.append(0)
 	cosmetic = clampi(int(config.get_value("collection", "active", 0)), 0, 3)
@@ -480,7 +484,9 @@ func press(pos: Vector2, id: int) -> void:
 		competition_client.send({"action":"submit", "day":daily_day, "moves":daily_replay})
 		return
 	if collection_open:
-		if PROFILE_BACK.has_point(pos): collection_open = false
+		if PROFILE_BACK.has_point(pos):
+			collection_open = false
+			map_open = true
 		elif Rect2(37, 630, 406, 44).has_point(pos):
 			sound_on = not sound_on
 			save_best()
@@ -922,7 +928,7 @@ func check_stage_end() -> void:
 	queue_redraw()
 
 func map_node(index: int) -> Vector2:
-	return Vector2(105 if index % 2 == 0 else 325, 588 - index * 46)
+	return Vector2(105 if index % 2 == 0 else 325, 576 - index * 46)
 
 func draw_garden_background() -> void:
 	draw_rect(Rect2(0, 0, 480, 800), Color("0d241e"))
@@ -1266,7 +1272,9 @@ func draw_collection() -> void:
 		var status := "SEÇİLİ" if cosmetic == i else ("SEÇ" if owned_cosmetics.has(i) else "%d kristal" % [0,75,125,200][i])
 		label_at(status, Vector2(180, y + 58), 16, Color("ffd166"))
 		draw_circle(Vector2(374, y + 39), 22, PALETTES[1][i])
-		if i > 0: draw_arc(Vector2(374, y + 39), 25, 0, TAU, 32, Color("fff4b3"), 2, true)
+		if i == 1: draw_arc(Vector2(374, y + 39), 20, 0, TAU, 32, Color.WHITE, 1.5, true)
+		elif i == 2: draw_line(Vector2(362,y+33),Vector2(386,y+45),Color.WHITE,2,true)
+		elif i == 3: draw_arc(Vector2(374, y + 39), 25, elapsed if effects else 0.0, (elapsed if effects else 0.0)+PI, 32, Color("fff4b3"), 2, true)
 	text("Görünümler güç avantajı sağlamaz.", 592, 16, Color("9eb8a6"))
 	box(Rect2(37, 630, 406, 44), Color("25385a"))
 	text("Ses: Açık" if sound_on else "Ses: Kapalı", 659, 20)
