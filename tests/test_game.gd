@@ -343,6 +343,52 @@ func run_tests() -> void:
 			game.start_fall()
 			game.finish_fall()
 		check(game.stage_won, "Seeded stage %d solution: score=%d ice=%d moves=%d" % [level_index + 1, game.score, game.ice_left(), game.moves_left])
+	game.level_stars.fill(1)
+	game.start_stage(10)
+	check(game.ice_left() == 16, "Valley ice has two layers")
+	game.score = 99999
+	game.ice.fill(0)
+	game.check_stage_end()
+	check(not game.ended, "Special mission is required in addition to score")
+	game.mission_count = 1
+	game.check_stage_end()
+	check(game.stage_won, "Score ice and special mission jointly win")
+	var wallet: int = game.crystals
+	game.check_stage_end()
+	check(game.crystals == wallet, "First-clear crystals cannot be claimed twice")
+	game.start_stage(20)
+	check(game.relay.count(1) == 5, "Neon stage has energy targets")
+	game.board.fill(0)
+	game.specials.fill(0)
+	game.specials[0] = game.BOMB
+	game.specials[1] = game.LIGHTNING
+	game.chain.assign([0,1,2])
+	game.prepare_resolution()
+	check(game.clear_cells.has(43) and game.mission_count > 0, "Bomb lightning combo hits cross and relay targets")
+	game.collapse()
+	game.start_daily()
+	var daily_board = game.board.duplicate()
+	game.restart()
+	check(game.board == daily_board and game.moves_left == 20, "Daily retries use identical board and move limit")
+	var daily_wallet: int = game.crystals
+	game.score = 500
+	game.finish_daily()
+	check(game.crystals == daily_wallet + 40, "Daily target grants crystals")
+	game.restart()
+	game.score = 500
+	game.finish_daily()
+	check(game.crystals == daily_wallet + 40, "Daily reward is only granted once")
+	game.crystals = 74
+	check(not game.buy_cosmetic(1), "Collection blocks unaffordable purchase")
+	game.crystals = 75
+	check(game.buy_cosmetic(1) and game.crystals == 0, "Collection purchase deducts exact cost")
+	check(game.buy_cosmetic(1) and game.crystals == 0, "Owned cosmetics are free to reselect")
+	game.save_best()
+	var expanded = load("res://scripts/game.gd").new()
+	expanded.save_path = game.save_path
+	expanded.load_progress()
+	check(expanded.level_stars.size() == 30 and expanded.owned_cosmetics.has(1) and expanded.daily_best == 500, "Expansion data persists")
+	expanded.free()
 	DirAccess.remove_absolute(game.save_path)
 	game.queue_free()
 	print("Color Chain tests: %d failures" % failures)
