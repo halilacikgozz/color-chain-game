@@ -91,7 +91,13 @@ var ice: Array[int] = []
 var level_stars: Array[int] = [0,0,0,0,0,0,0,0,0,0]
 var level_bests: Array[int] = [0,0,0,0,0,0,0,0,0,0]
 var prior_timed := true
+var competition_client: Node
+var league_open := false
+var league_data: Dictionary = {}
+var league_message := "Günlük yarış puanların haftalık lige sayılır."
 var world_page := 0
+var daily_random := 1
+var daily_replay: Array = []
 var daily_mode := false
 var daily_day := ""
 var daily_best := 0
@@ -152,6 +158,10 @@ func _ready() -> void:
 	rng.randomize()
 	fx_rng.randomize()
 	setup_sound()
+	competition_client = load("res://scripts/competition.gd").new()
+	add_child(competition_client)
+	competition_client.updated.connect(league_updated)
+	competition_client.failed.connect(league_failed)
 	level_stars.resize(30)
 	level_stars.fill(0)
 	level_bests.resize(30)
@@ -335,7 +345,7 @@ func restart() -> void:
 	offsets.resize(SIDE * SIDE)
 	offsets.fill(0.0)
 	for i in board.size():
-		board[i] = rng.randi_range(0, active_colors() - 1)
+		board[i] = random_color(active_colors())
 	ensure_move()
 	board[1] = board[0]
 	board[2] = board[0]
@@ -354,7 +364,7 @@ func _process(delta: float) -> void:
 	if ended: celebration += delta
 	feed_sound()
 	impact = maxf(0.0, impact - delta * 3.0)
-	if focused and started and not ended and not profile_open and not collection_open and not map_open:
+	if focused and started and not ended and not profile_open and not collection_open and not league_open and not map_open:
 		combo_left = maxf(0.0, combo_left - delta)
 		if combo_left <= 0.0:
 			combo = 0
@@ -409,7 +419,7 @@ func can_join_chain(index: int) -> bool:
 	return specials[index] == RAINBOW or color == -1 or board[index] == color
 
 func select_cell(index: int) -> void:
-	if index < 0 or busy or ended or profile_open or collection_open or map_open:
+	if index < 0 or busy or ended or profile_open or collection_open or league_open or map_open:
 		return
 	if chain.is_empty():
 		chain.append(index)
@@ -458,6 +468,17 @@ func _notification(what: int) -> void:
 		focused = true
 
 func press(pos: Vector2, id: int) -> void:
+	if league_open:
+		if PROFILE_BACK.has_point(pos): league_open = false
+		elif Rect2(37, 620, 406, 48).has_point(pos):
+			league_message = "Lig yükleniyor…"
+			competition_client.send({"action":"leaderboard"})
+		return
+	if daily_mode and ended and Rect2(80, 570, 320, 55).has_point(pos):
+		league_open = true
+		league_message = "Puan gönderiliyor…"
+		competition_client.send({"action":"submit", "day":daily_day, "moves":daily_replay})
+		return
 	if collection_open:
 		if PROFILE_BACK.has_point(pos): collection_open = false
 		elif Rect2(37, 630, 406, 44).has_point(pos):
@@ -540,7 +561,7 @@ func press(pos: Vector2, id: int) -> void:
 func release_pointer() -> void:
 	dragging = false
 	pointer = -2
-	if busy or ended or profile_open or collection_open or map_open:
+	if busy or ended or profile_open or collection_open or league_open or map_open:
 		return
 	if chain.size() < 3:
 		chain.clear()
@@ -554,6 +575,7 @@ func release_pointer() -> void:
 	var count := chain.size()
 	combo = 1 if daily_mode else (mini(5, combo + 1) if combo_left > 0.0 else 1)
 	combo_left = COMBO_WINDOW
+	if daily_mode: daily_replay.append(chain.duplicate())
 	prepare_resolution()
 	var extra := maxi(0, clear_cells.size() + (1 if reward_anchor >= 0 else 0) - count)
 	var gained := (count * 10 + maxi(0, count - 3) * 5 + extra * 10) * combo
@@ -686,7 +708,7 @@ func collapse() -> void:
 				target -= 1
 		var missing := target + 1
 		while target >= 0:
-			board[target * SIDE + x] = rng.randi_range(0, active_colors() - 1)
+			board[target * SIDE + x] = random_color(active_colors())
 			specials[target * SIDE + x] = 0
 			offsets[target * SIDE + x] = -float(missing) * CELL
 			target -= 1
@@ -741,7 +763,7 @@ func ensure_move() -> void:
 	if has_move():
 		return
 	for i in board.size():
-		board[i] = rng.randi_range(0, active_colors() - 1)
+		board[i] = random_color(active_colors())
 	board[1] = board[0]
 	board[2] = board[0]
 	message = "Hamle kalmadı; tahta yenilendi."
@@ -829,7 +851,7 @@ func setup_stage() -> void:
 	rng.seed = 8123 + stage * 173
 	moves_left = int(stage_data()["moves"])
 	for i in 49:
-		board[i] = rng.randi_range(0, active_colors() - 1)
+		board[i] = random_color(active_colors())
 		specials[i] = 0
 		ice[i] = 0
 	# A visible opening chain teaches each mechanic without a random dead start.
@@ -1039,6 +1061,9 @@ func draw_special_effect(wave: Dictionary) -> void:
 			draw_arc(targets[n], 8 + age * 22, 0, TAU, 24, color, 2, true)
 
 func _draw() -> void:
+	if league_open:
+		draw_league()
+		return
 	if collection_open:
 		draw_collection()
 		return
@@ -1175,10 +1200,11 @@ func setup_daily() -> void:
 		daily_day = today
 		daily_best = 0
 		daily_attempts = 0
-	rng.seed = int(daily_day.replace("-", "")) * 71 + 501
+	daily_random = (int(daily_day.replace("-", "")) * 71 + 501) & 2147483647
+	daily_replay.clear()
 	moves_left = 20
 	for i in 49:
-		board[i] = rng.randi_range(0, 3)
+		board[i] = random_color(4)
 		specials[i] = 0
 	board[1] = board[0]
 	board[2] = board[0]
@@ -1213,8 +1239,9 @@ func draw_daily_result() -> void:
 	text("Bugünün en iyisi: %d" % daily_best, 451, 22, Color("ffd166"))
 	text("500 puan: günde bir +40 kristal", 502, 17, Color("9eb8a6"))
 	text("Ödül kazanıldı" if daily_rewarded == daily_day else "Ödül için tekrar dene", 545, 20, Color("ffd166"))
-	text("Çevrimiçi lig bağlantısı hazırlanıyor", 586, 16, Color("9eb8a6"))
-	text("Sonuç şu anda bu cihazda saklanır.", 614, 14, Color("9eb8a6"))
+	box(Rect2(80, 570, 320, 55), Color("526bd8"))
+	text("Haftalık lige gönder", 604, 20)
+	text("Lig için internet bağlantısı gerekir.", 643, 13, Color("9eb8a6"))
 
 func buy_cosmetic(index: int) -> bool:
 	if index < 0 or index > 3: return false
@@ -1294,3 +1321,42 @@ func feed_sound() -> void:
 			sound_phase = fmod(sound_phase + TAU * tone_frequency / 22050, TAU)
 			tone_remaining = maxf(0.0, tone_remaining - 1.0/22050)
 		playback.push_frame(Vector2(value, value))
+
+func random_color(count: int) -> int:
+	if not daily_mode: return rng.randi_range(0, count - 1)
+	daily_random = (daily_random * 1103515245 + 12345) & 2147483647
+	return (daily_random >> 16) % count
+
+func league_updated(data: Dictionary) -> void:
+	league_data = data
+	league_message = "İlk 5 oyuncu sonraki hafta yükselir."
+func league_failed(value: String) -> void:
+	league_message = value
+func draw_league() -> void:
+	draw_world_background(2)
+	text("HAFTALIK LİG", 50, 30, Color("70f6ff"))
+	var tier := clampi(int(league_data.get("tier",0)), 0, 3)
+	text(["Bronz", "Gümüş", "Altın", "Elmas"][tier], 98, 27, Color("ffd166"))
+	text(league_message, 143, 14, Color("9eb8a6"))
+	var rows: Array = league_data.get("rows", [])
+	if rows.is_empty():
+		text("Gerçek oyuncuların sonuçları burada görünür.", 260, 17, Color("9eb8a6"))
+		text("Günlük en iyi puanların haftalık toplamı yarışır.", 305, 15, Color("9eb8a6"))
+		text("Hesap bağlantısı tamamlanınca lig açılır.", 348, 16, Color("ffd166"))
+	else:
+		var self_rank := 0
+		for row in rows:
+			if row.get("self",false): self_rank = int(row["rank"])
+		text("Sıran: %d / %d" % [self_rank, rows.size()], 188, 19, Color("ffd166"))
+		var shown: Array = rows.slice(0,8)
+		if self_rank > 8: shown.append(rows[self_rank-1])
+		for i in shown.size():
+			var row: Dictionary = shown[i]
+			var y := 218 + i * 40
+			box(Rect2(37,y,406,34),Color("25385a") if row.get("self",false) else Color("172139"),7)
+			label_at("%d. %s" % [row["rank"],row["name"]],Vector2(170,y+23),16,Color.WHITE)
+			label_at(str(row["score"]),Vector2(380,y+23),16,Color("ffd166"))
+	box(Rect2(37,620,406,48),Color("526bd8"))
+	text("Sıralamayı yenile",650,20)
+	box(PROFILE_BACK,Color("355b44"))
+	text("Oyuna dön",746,22)
