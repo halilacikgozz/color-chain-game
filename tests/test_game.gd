@@ -344,6 +344,8 @@ func run_tests() -> void:
 			game.finish_fall()
 		check(game.stage_won, "Seeded stage %d solution: score=%d ice=%d moves=%d" % [level_index + 1, game.score, game.ice_left(), game.moves_left])
 	game.level_stars.fill(1)
+	for index in range(10,30):
+		check(game.start_stage(index) and game.has_move() and game.board.size() == 49, "All new stages have a playable opening")
 	game.start_stage(10)
 	check(game.ice_left() == 16, "Valley ice has two layers")
 	game.score = 99999
@@ -389,6 +391,18 @@ func run_tests() -> void:
 	expanded.load_progress()
 	check(expanded.level_stars.size() == 30 and expanded.owned_cosmetics.has(1) and expanded.daily_best == 500, "Expansion data persists")
 	expanded.free()
+	game.start_daily()
+	game.effects = false
+	for turn in 20:
+		game.chain.assign(solve_move(game))
+		game.release_pointer()
+		game.fall_tween.kill()
+		game.start_fall()
+		game.finish_fall()
+	check(game.ended and game.daily_replay.size() == 20, "Daily replay records exactly twenty valid moves")
+	var fixture := FileAccess.open("res://tests/daily_fixture.json", FileAccess.WRITE)
+	fixture.store_string(JSON.stringify({"day":game.daily_day,"moves":game.daily_replay,"score":game.score}))
+	fixture.close()
 	DirAccess.remove_absolute(game.save_path)
 	game.queue_free()
 	print("Color Chain tests: %d failures" % failures)
