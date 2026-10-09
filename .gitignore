@@ -3,3 +3,5 @@ build/
 export_credentials.cfg
 .DS_Store
 *.tmp
+
+tests/daily_fixture.json
