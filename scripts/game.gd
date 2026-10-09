@@ -28,6 +28,32 @@ const LEVELS := [
 	{"name": "Gökkuşağı Köprüsü", "moves": 22, "goal": 800, "ice": 16, "colors": 4, "hint": "9 taşlık zincir gökkuşağı kazandırır."},
 	{"name": "Bahçenin Kalbi", "moves": 24, "goal": 1000, "ice": 18, "colors": 4, "hint": "Final: tüm buzları kır ve 1000 puana ulaş!"}
 ]
+const WORLD_NAMES := ["Renk Bahçesi", "Buz Vadisi", "Neon Şehir"]
+const WORLD_TABS := [Rect2(25, 95, 140, 34), Rect2(170, 95, 140, 34), Rect2(315, 95, 140, 34)]
+const DAILY_BUTTON := Rect2(37, 652, 195, 40)
+const COLLECTION_BUTTON := Rect2(248, 652, 195, 40)
+const EXTRA_LEVELS := [
+ {"name":"Kar Kapısı","moves":26,"goal":700,"ice":8,"colors":3,"mission":"bomb","target":1},
+ {"name":"Kristal Köprü","moves":27,"goal":850,"ice":10,"colors":3,"mission":"chain","target":7},
+ {"name":"Buz Sarkıtları","moves":28,"goal":950,"ice":12,"colors":3,"mission":"lightning","target":1},
+ {"name":"Çifte Don","moves":29,"goal":1000,"ice":10,"colors":3,"mission":"bomb","target":2},
+ {"name":"Kutup Işığı","moves":30,"goal":1100,"ice":12,"colors":3,"mission":"rainbow","target":1},
+ {"name":"Kar Fırtınası","moves":30,"goal":1200,"ice":14,"colors":4,"mission":"chain","target":8},
+ {"name":"Donmuş Göl","moves":31,"goal":1300,"ice":14,"colors":3,"mission":"lightning","target":2},
+ {"name":"Buz Labirenti","moves":32,"goal":1400,"ice":16,"colors":4,"mission":"bomb","target":3},
+ {"name":"Kutup Zirvesi","moves":33,"goal":1500,"ice":16,"colors":3,"mission":"rainbow","target":1},
+ {"name":"Buzun Kalbi","moves":34,"goal":1700,"ice":18,"colors":3,"mission":"chain","target":9},
+ {"name":"Neon Kapısı","moves":27,"goal":1000,"ice":0,"colors":3,"mission":"relay","target":5},
+ {"name":"Elektrik Bulvarı","moves":28,"goal":1200,"ice":0,"colors":3,"mission":"lightning","target":2},
+ {"name":"Işık Köprüsü","moves":29,"goal":1400,"ice":0,"colors":3,"mission":"relay","target":7},
+ {"name":"Enerji Hattı","moves":30,"goal":1500,"ice":0,"colors":4,"mission":"bomb","target":3},
+ {"name":"Prizma Meydanı","moves":31,"goal":1700,"ice":0,"colors":3,"mission":"rainbow","target":2},
+ {"name":"Neon Tüneli","moves":32,"goal":1900,"ice":0,"colors":4,"mission":"relay","target":9},
+ {"name":"Voltaj Kulesi","moves":33,"goal":2100,"ice":0,"colors":3,"mission":"lightning","target":3},
+ {"name":"Renk Fabrikası","moves":34,"goal":2300,"ice":0,"colors":3,"mission":"chain","target":10},
+ {"name":"Gece Yarışı","moves":35,"goal":2500,"ice":0,"colors":4,"mission":"relay","target":11},
+ {"name":"Şehrin Kalbi","moves":36,"goal":2800,"ice":0,"colors":3,"mission":"rainbow","target":2}
+]
 const PROFILE_BUTTON := Rect2(37, 60, 406, 25)
 const PROFILE_BACK := Rect2(37, 710, 406, 56)
 const QUESTS := [
@@ -65,6 +91,26 @@ var ice: Array[int] = []
 var level_stars: Array[int] = [0,0,0,0,0,0,0,0,0,0]
 var level_bests: Array[int] = [0,0,0,0,0,0,0,0,0,0]
 var prior_timed := true
+var world_page := 0
+var daily_mode := false
+var daily_day := ""
+var daily_best := 0
+var daily_rewarded := ""
+var daily_attempts := 0
+var mission_count := 0
+var relay: Array[int] = []
+var crystals := 0
+var owned_cosmetics: Array[int] = [0]
+var cosmetic := 0
+var collection_open := false
+var celebration := 0.0
+var arrival := 0.0
+var new_unlock := -1
+var fx_rng := RandomNumberGenerator.new()
+var audio_player: AudioStreamPlayer
+var sound_on := true
+var sound_phase := 0.0
+var last_tone := -1
 var score := 0
 var best := 0
 var timed_best := 0
@@ -104,9 +150,11 @@ var moves := 0
 
 func _ready() -> void:
 	rng.randomize()
-	level_stars.resize(10)
+	fx_rng.randomize()
+	setup_sound()
+	level_stars.resize(30)
 	level_stars.fill(0)
-	level_bests.resize(10)
+	level_bests.resize(30)
 	level_bests.fill(0)
 	load_progress()
 	restart()
@@ -122,7 +170,9 @@ func load_progress() -> void:
 	stars = maxi(0, int(config.get_value("progress", "stars", 0)))
 	quests_done = maxi(0, int(config.get_value("progress", "quests_done", 0)))
 	quest_progress = clampi(int(config.get_value("progress", "quest_progress", 0)), 0, quest_target() - 1)
-	for i in 10:
+	level_stars.resize(30)
+	level_bests.resize(30)
+	for i in 30:
 		level_stars[i] = clampi(int(config.get_value("garden", "stars_%d" % i, 0)), 0, 3)
 		level_bests[i] = maxi(0, int(config.get_value("garden", "best_%d" % i, 0)))
 	theme_index = clampi(int(config.get_value("progress", "theme", 0)), 0, PALETTES.size() - 1)
@@ -131,6 +181,16 @@ func load_progress() -> void:
 	if theme_index == 3 and not garden_unlocked():
 		theme_index = 0
 	palette = PALETTES[theme_index]
+	crystals = maxi(0, int(config.get_value("collection", "crystals", 0)))
+	owned_cosmetics.assign(config.get_value("collection", "owned", [0]))
+	if not owned_cosmetics.has(0): owned_cosmetics.append(0)
+	cosmetic = clampi(int(config.get_value("collection", "active", 0)), 0, 3)
+	if not owned_cosmetics.has(cosmetic): cosmetic = 0
+	daily_day = str(config.get_value("daily", "day", ""))
+	daily_best = maxi(0, int(config.get_value("daily", "best", 0)))
+	daily_rewarded = str(config.get_value("daily", "rewarded", ""))
+	daily_attempts = maxi(0, int(config.get_value("daily", "attempts", 0)))
+	sound_on = bool(config.get_value("settings", "sound", true))
 
 func save_best() -> void:
 	var config := ConfigFile.new()
@@ -141,9 +201,17 @@ func save_best() -> void:
 	config.set_value("progress", "quests_done", quests_done)
 	config.set_value("progress", "quest_progress", quest_progress)
 	config.set_value("progress", "theme", theme_index)
-	for i in 10:
+	for i in 30:
 		config.set_value("garden", "stars_%d" % i, level_stars[i])
 		config.set_value("garden", "best_%d" % i, level_bests[i])
+	config.set_value("collection", "crystals", crystals)
+	config.set_value("collection", "owned", owned_cosmetics)
+	config.set_value("collection", "active", cosmetic)
+	config.set_value("daily", "day", daily_day)
+	config.set_value("daily", "best", daily_best)
+	config.set_value("daily", "rewarded", daily_rewarded)
+	config.set_value("daily", "attempts", daily_attempts)
+	config.set_value("settings", "sound", sound_on)
 	config.save(save_path)
 
 func player_level() -> int:
@@ -174,7 +242,7 @@ func update_progress(count: int, gained: int) -> void:
 	var earned := count * 3 + combo * 2
 	xp += earned
 	round_xp += earned
-	if timed_mode and not campaign_mode:
+	if timed_mode and not campaign_mode and not daily_mode:
 		timed_best = maxi(timed_best, score)
 	var kind: String = QUESTS[quests_done % QUESTS.size()]["kind"]
 	match kind:
@@ -228,6 +296,11 @@ func restart() -> void:
 	map_open = false
 	stage_won = false
 	stage_rating = 0
+	mission_count = 0
+	celebration = 0.0
+	arrival = 0.0
+	new_unlock = -1
+	collection_open = false
 	dragging = false
 	pointer = -2
 	score = 0
@@ -254,6 +327,8 @@ func restart() -> void:
 	chain.clear()
 	ice.resize(SIDE * SIDE)
 	ice.fill(0)
+	relay.resize(49)
+	relay.fill(0)
 	board.resize(SIDE * SIDE)
 	specials.resize(SIDE * SIDE)
 	specials.fill(0)
@@ -266,19 +341,24 @@ func restart() -> void:
 	board[2] = board[0]
 	specials[1] = BOMB
 	message = "Bomba taşını aynı renkte 3+ zincire kat!" if timed_mode else "Rahat mod • Bomba ile başla"
-	if campaign_mode:
+	if daily_mode:
+		setup_daily()
+	elif campaign_mode:
 		setup_stage()
 	queue_redraw()
 
 
 func _process(delta: float) -> void:
 	elapsed += delta
+	arrival = maxf(0.0, arrival - delta)
+	if ended: celebration += delta
+	feed_sound()
 	impact = maxf(0.0, impact - delta * 3.0)
-	if focused and started and not ended and not profile_open and not map_open:
+	if focused and started and not ended and not profile_open and not collection_open and not map_open:
 		combo_left = maxf(0.0, combo_left - delta)
 		if combo_left <= 0.0:
 			combo = 0
-		if timed_mode and not campaign_mode:
+		if timed_mode and not campaign_mode and not daily_mode:
 			remaining = maxf(0.0, remaining - delta)
 			if remaining <= 0.0 and not busy:
 				end_round()
@@ -329,7 +409,7 @@ func can_join_chain(index: int) -> bool:
 	return specials[index] == RAINBOW or color == -1 or board[index] == color
 
 func select_cell(index: int) -> void:
-	if index < 0 or busy or ended or profile_open or map_open:
+	if index < 0 or busy or ended or profile_open or collection_open or map_open:
 		return
 	if chain.is_empty():
 		chain.append(index)
@@ -337,6 +417,9 @@ func select_cell(index: int) -> void:
 		chain.pop_back()
 	elif not chain.has(index) and adjacent(chain.back(), index) and can_join_chain(index):
 		chain.append(index)
+	if chain.size() != last_tone:
+		last_tone = chain.size()
+		play_tone(260 + chain.size() * 45, 0.06)
 	queue_redraw()
 
 func _input(event: InputEvent) -> void:
@@ -375,13 +458,31 @@ func _notification(what: int) -> void:
 		focused = true
 
 func press(pos: Vector2, id: int) -> void:
+	if collection_open:
+		if PROFILE_BACK.has_point(pos): collection_open = false
+		elif Rect2(37, 630, 406, 44).has_point(pos):
+			sound_on = not sound_on
+			save_best()
+		else:
+			for i in 4:
+				if Rect2(37, 180 + i * 95, 406, 80).has_point(pos): buy_cosmetic(i)
+		return
 	if map_open:
+		for i in 3:
+			if WORLD_TABS[i].has_point(pos): world_page = i
+		if DAILY_BUTTON.has_point(pos):
+			start_daily()
+			return
+		if COLLECTION_BUTTON.has_point(pos):
+			collection_open = true
+			map_open = false
+			return
 		if PROFILE_BACK.has_point(pos):
 			leave_campaign()
 			return
 		for i in 10:
-			if map_node(i).distance_to(pos) <= 27 and stage_unlocked(i):
-				start_stage(i)
+			if map_node(i).distance_to(pos) <= 27 and stage_unlocked(world_page * 10 + i):
+				start_stage(world_page * 10 + i)
 		return
 	if MAP_BUTTON.has_point(pos) and not profile_open:
 		if not busy:
@@ -407,7 +508,7 @@ func press(pos: Vector2, id: int) -> void:
 		return
 	if RESTART.has_point(pos):
 		if campaign_mode and stage_won:
-			if stage < 9:
+			if stage < 29:
 				start_stage(stage + 1)
 			else:
 				map_open = true
@@ -415,7 +516,7 @@ func press(pos: Vector2, id: int) -> void:
 			restart()
 		return
 	if MODE_BUTTON.has_point(pos):
-		if campaign_mode:
+		if campaign_mode or daily_mode:
 			map_open = true
 			return
 		timed_mode = not timed_mode
@@ -439,7 +540,7 @@ func press(pos: Vector2, id: int) -> void:
 func release_pointer() -> void:
 	dragging = false
 	pointer = -2
-	if busy or ended or profile_open or map_open:
+	if busy or ended or profile_open or collection_open or map_open:
 		return
 	if chain.size() < 3:
 		chain.clear()
@@ -451,7 +552,7 @@ func release_pointer() -> void:
 	started = true
 	busy = true
 	var count := chain.size()
-	combo = mini(5, combo + 1) if combo_left > 0.0 else 1
+	combo = 1 if daily_mode else (mini(5, combo + 1) if combo_left > 0.0 else 1)
 	combo_left = COMBO_WINDOW
 	prepare_resolution()
 	var extra := maxi(0, clear_cells.size() + (1 if reward_anchor >= 0 else 0) - count)
@@ -460,9 +561,11 @@ func release_pointer() -> void:
 	best = maxi(best, score)
 	longest = maxi(longest, count)
 	moves += 1
-	if campaign_mode:
+	if campaign_mode or daily_mode:
 		moves_left -= 1
-	var bonus := mini(5, count - 2) if count >= 5 and timed_mode and not campaign_mode else 0
+		if stage_data().get("mission", "") == "chain" and campaign_mode:
+			mission_count = maxi(mission_count, count)
+	var bonus := mini(5, count - 2) if count >= 5 and timed_mode and not campaign_mode and not daily_mode else 0
 	remaining = minf(ROUND_SECONDS, remaining + bonus)
 	message = "%d taş • +%d puan%s" % [count, gained, " • +%d sn" % bonus if bonus > 0 else ""]
 	update_progress(count, gained)
@@ -476,8 +579,8 @@ func release_pointer() -> void:
 		impact = minf(1.0, count / 8.0)
 		for index in clear_cells:
 			for n in 8:
-				var angle := rng.randf_range(0.0, TAU)
-				particles.append({"pos": center(index), "velocity": Vector2.from_angle(angle) * rng.randf_range(60, 150), "life": rng.randf_range(0.35, 0.65), "color": palette[board[index]]})
+				var angle := fx_rng.randf_range(0.0, TAU)
+				particles.append({"pos": center(index), "velocity": Vector2.from_angle(angle) * fx_rng.randf_range(60, 150), "life": fx_rng.randf_range(0.35, 0.65), "color": palette[board[index]]})
 	popping.assign(clear_cells)
 	fall_tween = create_tween()
 	fall_tween.tween_method(animate_pop, 0.0, 1.0, 0.12)
@@ -494,6 +597,21 @@ func prepare_resolution() -> void:
 	var target_color := chain_color()
 	if target_color < 0:
 		target_color = board[chain.front()]
+	var paired := []
+	for index in chain:
+		if specials[index] > 0: paired.append(specials[index])
+	if paired.has(BOMB) and paired.has(LIGHTNING):
+		for index in chain:
+			if specials[index] == LIGHTNING:
+				for other in 49:
+					if absi(other / 7 - index / 7) <= 1 or other % 7 == index % 7:
+						if not clear_cells.has(other): clear_cells.append(other)
+		combo_notice("BOMBA + ŞİMŞEK!")
+	if paired.has(RAINBOW) and (paired.has(BOMB) or paired.has(LIGHTNING)):
+		for other in 49:
+			if board[other] == target_color and specials[other] == 0:
+				specials[other] = BOMB if paired.has(BOMB) else LIGHTNING
+		combo_notice("GÖKKUŞAĞI KOMBİNASYONU!")
 	var activated: Array[int] = []
 	var cursor := 0
 	while cursor < clear_cells.size():
@@ -502,6 +620,7 @@ func prepare_resolution() -> void:
 		if specials[index] == 0 or activated.has(index):
 			continue
 		activated.append(index)
+		if campaign_mode and stage_data().get("mission", "") == special_name_key(specials[index]): mission_count += 1
 		if effects:
 			var targets := PackedVector2Array()
 			if specials[index] == RAINBOW:
@@ -532,9 +651,14 @@ func prepare_resolution() -> void:
 	if campaign_mode:
 		for index in clear_cells:
 			if ice[index] > 0:
-				ice[index] = 0
+				ice[index] -= 1
 				if effects:
 					floaters.append({"pos": center(index), "text": "BUZ!", "life": 0.7, "color": Color("b9f5ff")})
+	if campaign_mode and stage >= 20:
+		for index in clear_cells:
+			if relay[index] > 0:
+				relay[index] = 0
+				mission_count += 1
 	if reward_anchor >= 0:
 		clear_cells.erase(reward_anchor)
 		board[reward_anchor] = target_color
@@ -578,9 +702,12 @@ func animate_fall(value: float) -> void:
 func finish_fall() -> void:
 	offsets.fill(0.0)
 	fall_progress = 0.0
+	arrival = 0.32 if effects else 0.0
 	ensure_move()
 	busy = false
-	if campaign_mode:
+	if daily_mode:
+		if moves_left <= 0: finish_daily()
+	elif campaign_mode:
 		check_stage_end()
 	elif timed_mode and remaining <= 0.0:
 		end_round()
@@ -667,34 +794,40 @@ func draw_profile() -> void:
 	text("Oyuna dön", 746, 22)
 	text("Tur duraklatıldı • İlerleme bu cihazda saklanır", 788, 14, Color("9caac7"))
 
+func stage_data() -> Dictionary:
+	return LEVELS[stage] if stage < 10 else EXTRA_LEVELS[stage - 10]
+
 func active_colors() -> int:
-	return int(LEVELS[stage]["colors"]) if campaign_mode else 4
+	return int(stage_data()["colors"]) if campaign_mode else 4
 
 func garden_unlocked() -> bool:
-	return level_stars.size() == 10 and level_stars[9] > 0
+	return level_stars.size() >= 10 and level_stars[9] > 0
 
 func stage_unlocked(index: int) -> bool:
-	return index >= 0 and index < 10 and (index == 0 or level_stars[index - 1] > 0)
+	return index >= 0 and index < 30 and (index == 0 or level_stars[index - 1] > 0)
 
 func start_stage(index: int) -> bool:
 	if not stage_unlocked(index):
 		return false
 	if not campaign_mode:
 		prior_timed = timed_mode
+	daily_mode = false
 	campaign_mode = true
 	timed_mode = false
 	stage = index
+	world_page = stage / 10
 	restart()
 	return true
 
 func leave_campaign() -> void:
 	campaign_mode = false
+	daily_mode = false
 	timed_mode = prior_timed
 	restart()
 
 func setup_stage() -> void:
 	rng.seed = 8123 + stage * 173
-	moves_left = int(LEVELS[stage]["moves"])
+	moves_left = int(stage_data()["moves"])
 	for i in 49:
 		board[i] = rng.randi_range(0, active_colors() - 1)
 		specials[i] = 0
@@ -711,7 +844,7 @@ func setup_stage() -> void:
 	var candidates: Array[int] = []
 	for i in range(7, 49):
 		candidates.append(i)
-	for n in int(LEVELS[stage]["ice"]):
+	for n in int(stage_data()["ice"]):
 		var pick := rng.randi_range(0, candidates.size() - 1)
 		ice[candidates[pick]] = 1
 		candidates.remove_at(pick)
@@ -720,18 +853,31 @@ func setup_stage() -> void:
 		for i in range(7, 19):
 			ice[i] = 1
 			board[i] = 0
+	if stage >= 10:
+		for i in range(0, 14): board[i] = 0
+		specials[1] = BOMB
+		specials[4] = LIGHTNING
+		specials[10] = RAINBOW
+		if stage < 20:
+			for i in 49:
+				if ice[i] > 0: ice[i] = 2
+		else:
+			for i in int(stage_data().get("target", 5)):
+				relay[7 + i] = 1
 	ensure_move()
-	message = LEVELS[stage]["hint"]
+	message = str(stage_data().get("hint", mission_label()))
 
 func ice_left() -> int:
-	return ice.count(1)
+	var total := 0
+	for layer in ice: total += layer
+	return total
 
 func check_stage_end() -> void:
 	if ended:
 		return
-	if score >= int(LEVELS[stage]["goal"]) and ice_left() == 0:
+	if score >= int(stage_data()["goal"]) and ice_left() == 0 and mission_complete():
 		stage_won = true
-		var budget: int = LEVELS[stage]["moves"]
+		var budget: int = stage_data()["moves"]
 		stage_rating = 3 if moves_left >= ceili(budget * 0.5) else (2 if moves_left >= ceili(budget * 0.2) else 1)
 		var first_win := level_stars[stage] == 0
 		level_stars[stage] = maxi(level_stars[stage], stage_rating)
@@ -739,6 +885,10 @@ func check_stage_end() -> void:
 		if first_win:
 			xp += 50
 			round_xp += 50
+			crystals += 25
+		new_unlock = stage + 1
+		celebration = 0.0
+		play_tone(880, 0.25)
 		ended = true
 		cancel_selection()
 		save_best()
@@ -750,7 +900,7 @@ func check_stage_end() -> void:
 	queue_redraw()
 
 func map_node(index: int) -> Vector2:
-	return Vector2(105 if index % 2 == 0 else 325, 590 - index * 48)
+	return Vector2(105 if index % 2 == 0 else 325, 588 - index * 46)
 
 func draw_garden_background() -> void:
 	draw_rect(Rect2(0, 0, 480, 800), Color("0d241e"))
@@ -762,23 +912,33 @@ func draw_garden_background() -> void:
 			draw_circle(Vector2(x, y) + Vector2.from_angle(j * TAU / 5) * 8, 4, Color(1, 0.65, 0.75, 0.25))
 
 func draw_map() -> void:
-	draw_garden_background()
-	text("RENK BAHÇESİ", 48, 32, Color("b8f0cc"))
-	text("10 bölüm • %d / 30 bölüm yıldızı" % level_stars.reduce(func(a: int, b: int) -> int: return a + b, 0), 78, 17, Color("ffd166"))
+	draw_world_background(world_page)
+	text(WORLD_NAMES[world_page].to_upper(), 43, 29, Color("b8f0cc"))
+	var total := 0
+	for i in range(world_page * 10, world_page * 10 + 10): total += level_stars[i]
+	text("10 bölüm • %d / 30 yıldız • %d kristal" % [total, crystals], 74, 16, Color("ffd166"))
+	for i in 3:
+		box(WORLD_TABS[i], Color("526bd8") if i == world_page else Color("263d44"), 9)
+		label_at(["Bahçe", "Buz Vadisi", "Neon Şehir"][i], WORLD_TABS[i].get_center() + Vector2(0, 5), 14, Color.WHITE)
 	for i in range(1, 10):
-		draw_line(map_node(i - 1), map_node(i), Color("355b44"), 8, true)
+		var glow := 0.4 + sin(elapsed * 2 + i) * 0.15 if effects else 0.4
+		draw_line(map_node(i - 1), map_node(i), Color(0.4, 0.8, 0.7, glow) if stage_unlocked(world_page * 10 + i) else Color("355b44"), 7, true)
 	for i in 10:
+		var index := world_page * 10 + i
 		var pos := map_node(i)
-		var unlocked := stage_unlocked(i)
-		var color := Color("589e69") if level_stars[i] > 0 else (Color("526bd8") if unlocked else Color("263d33"))
-		draw_circle(pos + Vector2(0, 4), 25, Color("09140e"))
-		draw_circle(pos, 25, color)
-		label_at(str(i + 1) if unlocked else "KİLİT", pos + Vector2(0, 7), 22 if unlocked else 10, Color.WHITE if unlocked else Color("809b87"))
-		var label_pos := pos + Vector2(95 if i % 2 == 0 else -100, 5)
-		label_at(LEVELS[i]["name"], label_pos, 12, Color("b8ccbb"))
-		draw_rating(pos + Vector2(0, 37), level_stars[i], 6)
-	text("Bir bölümü geç, sıradaki durağı aç.", 656, 18, Color("b8f0cc"))
-	text("Final ödülü: Çiçek Bahçesi teması", 685, 17, Color("ffd166"))
+		var unlocked := stage_unlocked(index)
+		if unlocked and level_stars[index] == 0 and effects: draw_circle(pos, 29 + sin(elapsed * 3) * 2, Color(0.5, 0.7, 1, 0.15))
+		draw_circle(pos + Vector2(0, 4), 24, Color("09140e"))
+		draw_circle(pos, 24, Color("589e69") if level_stars[index] > 0 else (Color("526bd8") if unlocked else Color("263d33")))
+		label_at(str(index + 1) if unlocked else "KİLİT", pos + Vector2(0, 7), 21 if unlocked else 10, Color.WHITE)
+		var data: Dictionary = LEVELS[index] if index < 10 else EXTRA_LEVELS[index - 10]
+		label_at(data["name"], pos + Vector2(95 if i % 2 == 0 else -100, 5), 12, Color("b8ccbb"))
+		draw_rating(pos + Vector2(0, 33), level_stars[index], 5)
+	text("Finali geç, sıradaki dünyayı aç!", 634, 17, Color("b8f0cc"))
+	box(DAILY_BUTTON, Color("526bd8"), 10)
+	box(COLLECTION_BUTTON, Color("355b44"), 10)
+	label_at("Günlük yarış", DAILY_BUTTON.get_center() + Vector2(0, 6), 17, Color.WHITE)
+	label_at("Koleksiyon", COLLECTION_BUTTON.get_center() + Vector2(0, 6), 17, Color.WHITE)
 	box(PROFILE_BACK, Color("355b44"))
 	text("Serbest oyuna geç", 746, 21)
 	text("Can ve bekleme yok • İstediğin kadar dene", 785, 14, Color("9eb8a6"))
@@ -796,9 +956,9 @@ func draw_rating(center: Vector2, rating: int, radius: float) -> void:
 func draw_stage_result() -> void:
 	draw_rect(Rect2(ORIGIN - Vector2(9, 9), Vector2.ONE * (SIDE * CELL + 18)), Color(0.03, 0.1, 0.08, 0.94))
 	text("BÖLÜM TAMAMLANDI!" if stage_won else "BİR KEZ DAHA DENE", 340, 27, Color("b8f0cc"))
-	draw_rating(Vector2(240, 388), stage_rating if stage_won else 0, 20)
+	draw_rating(Vector2(240, 388), mini(stage_rating, int(celebration / 0.25) + 1) if stage_won and effects else stage_rating, 20)
 	text("%d PUAN • %d HAMLE KALDI" % [score, moves_left], 448, 19)
-	text("+50 deneyim ilk tamamlamada" if stage_won else "Hedef: %d puan ve tüm buzlar" % LEVELS[stage]["goal"], 493, 18, Color("9eb8a6"))
+	text("İlk başarı: +50 deneyim +25 kristal" if stage_won else "Hedef: %d puan ve tüm buzlar" % stage_data()["goal"], 493, 18, Color("9eb8a6"))
 	text("Çiçek Bahçesi teması açıldı!" if stage_won and stage == 9 else ("Bölüm yıldızların kaydedildi." if stage_won else "%d buz kaldı; özel taşları kullan." % ice_left()), 540, 19, Color("ffd166"))
 	text("3 yıldız: hamlelerin en az yarısı kalsın.", 588, 15, Color("9eb8a6"))
 
@@ -879,23 +1039,32 @@ func draw_special_effect(wave: Dictionary) -> void:
 			draw_arc(targets[n], 8 + age * 22, 0, TAU, 24, color, 2, true)
 
 func _draw() -> void:
+	if collection_open:
+		draw_collection()
+		return
 	if map_open:
 		draw_map()
 		return
 	if profile_open:
 		draw_profile()
 		return
-	if campaign_mode or theme_index == 3:
+	if campaign_mode:
+		draw_world_background(stage / 10)
+	elif theme_index == 3:
 		draw_garden_background()
+	var tension := campaign_mode or daily_mode
+	var urgent := tension and moves_left <= 3 and not ended
 	var accent := Color("ffd166") if remaining > 10 or not timed_mode else Color("ff6584")
-	text("RENK BAHÇESİ %d" % (stage + 1) if campaign_mode else "COLOR CHAIN", 52, 30)
+	text("%s %d" % [WORLD_NAMES[stage / 10].to_upper(), stage % 10 + 1] if campaign_mode else ("GÜNLÜK YARIŞ" if daily_mode else "COLOR CHAIN"), 52, 30)
 	text("SV %d • %d yıldız • Hedefler ve ödüller ›" % [player_level(), stars], 78, 16, Color("58d8ce"))
 	box(Rect2(37, 92, 195, 36), Color("172139"))
 	box(Rect2(248, 92, 195, 36), Color("172139"))
-	label_at("HAMLE  %d" % moves_left if campaign_mode else ("SÜRE  %02d" % ceili(remaining) if timed_mode else "RAHAT MOD  ∞"), Vector2(134, 116), 18, accent)
-	label_at("BUZ  %d" % ice_left() if campaign_mode else "REKOR  %d" % best, Vector2(346, 116), 18, Color("58d8ce"))
+	label_at("HAMLE  %d" % moves_left if campaign_mode or daily_mode else ("SÜRE  %02d" % ceili(remaining) if timed_mode else "RAHAT MOD  ∞"), Vector2(134, 116), 18, accent)
+	label_at("BUZ  %d" % ice_left() if campaign_mode else ("GÜNLÜK  %d" % daily_best if daily_mode else "REKOR  %d" % best), Vector2(346, 116), 18, Color("58d8ce"))
 	box(Rect2(37, 137, 406, 5), Color("172139"), 2)
 	box(Rect2(37, 137, 406 * remaining / ROUND_SECONDS if timed_mode else 406, 5), accent, 2)
+	if urgent:
+		box(Rect2(37, 92, 195, 36), Color(1, 0.2, 0.4, 0.2 + (sin(elapsed * 5) * 0.1 if effects else 0.0)), 12)
 	text("SKOR  %d" % score, 181, 30, Color.WHITE.lerp(accent, impact))
 	box(MAP_BUTTON, Color("285b51"), 8)
 	label_at("HARİTA", Vector2(72, 183), 12, Color("b8f0cc"))
@@ -905,7 +1074,7 @@ func _draw() -> void:
 	draw_set_transform(shake)
 	box(Rect2(ORIGIN - Vector2(9, 9), Vector2.ONE * (SIDE * CELL + 18)), Color("172139"), 20)
 	for i in board.size():
-		var pos := center(i) + Vector2(0, offsets[i] * fall_progress)
+		var pos := center(i) + Vector2(0, offsets[i] * fall_progress + (sin(arrival * 30 + i % 7 * 0.3) * arrival * 8 if effects and not busy else 0))
 		if pos.y < ORIGIN.y:
 			continue
 		var selected := chain.has(i)
@@ -914,6 +1083,8 @@ func _draw() -> void:
 			radius += 1.5 + sin(elapsed * 9) * 1.2
 		if popping.has(i):
 			radius *= 1.0 - pop_progress
+		if campaign_mode and relay[i] > 0:
+			draw_arc(pos, 26, 0, TAU, 32, Color("70f6ff"), 3, true)
 		if campaign_mode and ice[i] > 0:
 			box(Rect2(pos - Vector2(26, 26), Vector2(52, 52)), Color(0.6, 0.9, 1.0, 0.22), 10)
 			draw_line(pos + Vector2(-19, -18), pos + Vector2(14, -18), Color("c2f5ff"), 2, true)
@@ -922,6 +1093,9 @@ func _draw() -> void:
 			draw_circle(pos, radius + 6, Color(palette[board[i]], 0.15))
 		draw_circle(pos + Vector2(0, 4), radius, Color("080e1c"))
 		draw_circle(pos, radius, palette[board[i]])
+		if cosmetic == 1: draw_arc(pos, radius - 3, 0, TAU, 32, Color(1, 1, 1, 0.7), 1.5, true)
+		elif cosmetic == 2: draw_line(pos + Vector2(-12, -6), pos + Vector2(12, 6), Color(1, 1, 1, 0.5), 2, true)
+		elif cosmetic == 3: draw_arc(pos, radius + 1, elapsed if effects else 0.0, (elapsed if effects else 0.0) + PI, 24, Color("fff4b3"), 2, true)
 		if radius > 10:
 			draw_circle(pos + Vector2(-7, -9), 5, Color(1, 1, 1, 0.18))
 			if specials[i] != 0:
@@ -931,8 +1105,11 @@ func _draw() -> void:
 
 	if chain.size() > 1 and not busy:
 		for i in range(1, chain.size()):
-			draw_line(center(chain[i - 1]), center(chain[i]), Color(1, 1, 1, 0.15), 12, true)
-			draw_line(center(chain[i - 1]), center(chain[i]), Color.WHITE, 4, true)
+			draw_line(center(chain[i - 1]), center(chain[i]), Color(palette[board[chain[i]]], 0.25), 16, true)
+			draw_line(center(chain[i - 1]), center(chain[i]), Color("fff4b3") if cosmetic == 3 else Color.WHITE, 4 + minf(3, chain.size() / 3.0), true)
+	if effects and chain.size() > 1 and not busy:
+		var segment := int(elapsed * 5) % (chain.size() - 1)
+		draw_circle(center(chain[segment]).lerp(center(chain[segment + 1]), fmod(elapsed * 5, 1.0)), 5, Color("ffd166"))
 	for index in chain:
 		if not busy:
 			draw_arc(center(index), 27, 0, TAU, 40, Color.WHITE, 2, true)
@@ -943,21 +1120,26 @@ func _draw() -> void:
 	for floater in floaters:
 		label_at(floater["text"], floater["pos"], 24, Color(floater["color"], minf(1.0, floater["life"] * 2)))
 	draw_set_transform(Vector2.ZERO)
-	if campaign_mode:
-		text("Hedef: %d / %d puan • %d buz kaldı" % [score, LEVELS[stage]["goal"], ice_left()], 662, 16, Color("b8f0cc"))
+	if daily_mode:
+		text("UTC %s • 20 hamlede en yüksek puan" % daily_day, 662, 15, Color("b8f0cc"))
+	elif campaign_mode:
+		text("Hedef: %d / %d puan • %d buz kaldı" % [score, stage_data()["goal"], ice_left()], 655, 14, Color("b8f0cc"))
+		if stage >= 10: text(mission_label(), 678, 13, Color("70f6ff"))
 	elif combo >= 2 and not ended:
 		text("KOMBO x%d" % combo, 662, 22, Color("ffd166"))
 		box(Rect2(145, 672, 190 * combo_left / COMBO_WINDOW, 3), Color("ffd166"), 1)
 	else:
 		text("Görev: %s (%d/%d)" % [quest_title(), quest_progress, quest_target()], 662, 15, Color("9caac7"))
 	box(RESTART, Color("526bd8"))
-	text(("Sonraki bölüm" if stage < 9 else "Bahçe tamamlandı!") if campaign_mode and stage_won else ("Tekrar dene" if ended else "Yeniden başlat"), 723, 21)
+	text(("Sonraki bölüm" if stage < 29 else "Dünyalar tamamlandı!") if campaign_mode and stage_won else ("Tekrar dene" if ended else "Yeniden başlat"), 723, 21)
 	box(MODE_BUTTON, Color("172139"), 9)
 	box(EFFECTS_BUTTON, Color("172139"), 9)
-	label_at("Bölüm haritası" if campaign_mode else ("Mod: 60 sn" if timed_mode else "Mod: Rahat"), Vector2(134, 775), 15, Color("9caac7"))
+	label_at("Bölüm haritası" if campaign_mode or daily_mode else ("Mod: 60 sn" if timed_mode else "Mod: Rahat"), Vector2(134, 775), 15, Color("9caac7"))
 	label_at("Efektler: Açık" if effects else "Efektler: Sade", Vector2(346, 775), 15, Color("9caac7"))
 	if campaign_mode and ended:
 		draw_stage_result()
+	elif daily_mode and ended:
+		draw_daily_result()
 	elif ended:
 		draw_rect(Rect2(ORIGIN - Vector2(9, 9), Vector2.ONE * (SIDE * CELL + 18)), Color(0.03, 0.05, 0.1, 0.9))
 		text("%s MADALYA" % medal(score) if score >= 100 else "TUR TAMAMLANDI", 354, 28, Color("ffd166"))
@@ -966,3 +1148,149 @@ func _draw() -> void:
 		text("+%d deneyim • Seviye %d" % [round_xp, player_level()], 500, 19, Color("9caac7"))
 		text(next_medal(score), 545, 20, Color("ffd166"))
 		text("Yeni tur için Tekrar oyna'ya dokun.", 592, 16, Color("9caac7"))
+
+func special_name_key(kind: int) -> String:
+	return ["", "bomb", "lightning", "rainbow"][kind]
+
+func mission_complete() -> bool:
+	return stage < 10 or mission_count >= int(stage_data().get("target", 0))
+
+func mission_label() -> String:
+	if not campaign_mode or stage < 10: return "Uzun zincirler kur, özel taşları birleştir!"
+	var kind: String = stage_data().get("mission", "")
+	var title: String = {"bomb":"Bomba etkinleştir", "lightning":"Şimşek etkinleştir", "rainbow":"Gökkuşağı etkinleştir", "chain":"En uzun zincir", "relay":"Enerji düğümü temizle"}.get(kind, "Görev")
+	return "%s: %d / %d" % [title, mission_count, stage_data().get("target", 0)]
+
+func combo_notice(value: String) -> void:
+	if effects:
+		floaters.append({"pos":Vector2(240, 410), "text":value, "life":1.5, "color":Color("70f6ff")})
+	play_tone(540, 0.15)
+
+func utc_day() -> String:
+	return Time.get_date_string_from_system(true)
+
+func setup_daily() -> void:
+	var today := utc_day()
+	if daily_day != today:
+		daily_day = today
+		daily_best = 0
+		daily_attempts = 0
+	rng.seed = int(daily_day.replace("-", "")) * 71 + 501
+	moves_left = 20
+	for i in 49:
+		board[i] = rng.randi_range(0, 3)
+		specials[i] = 0
+	board[1] = board[0]
+	board[2] = board[0]
+	specials[1] = BOMB
+	ensure_move()
+	message = "Aynı günlük tahta • Kombo x1 • 20 hamle"
+
+func start_daily() -> void:
+	if not campaign_mode and not daily_mode: prior_timed = timed_mode
+	campaign_mode = false
+	daily_mode = true
+	timed_mode = false
+	restart()
+
+func finish_daily() -> void:
+	ended = true
+	daily_attempts += 1
+	daily_best = maxi(daily_best, score)
+	if daily_rewarded != daily_day and score >= 500:
+		daily_rewarded = daily_day
+		crystals += 40
+		xp += 50
+		round_xp += 50
+	celebration = 0.0
+	cancel_selection()
+	save_best()
+
+func draw_daily_result() -> void:
+	draw_rect(Rect2(ORIGIN - Vector2(9, 9), Vector2.ONE * (SIDE * CELL + 18)), Color(0.03, 0.05, 0.1, 0.94))
+	text("GÜNLÜK YARIŞ TAMAMLANDI", 340, 24, Color("70f6ff"))
+	text("%d PUAN" % score, 401, 36)
+	text("Bugünün en iyisi: %d" % daily_best, 451, 22, Color("ffd166"))
+	text("500 puan: günde bir +40 kristal", 502, 17, Color("9eb8a6"))
+	text("Ödül kazanıldı" if daily_rewarded == daily_day else "Ödül için tekrar dene", 545, 20, Color("ffd166"))
+	text("Çevrimiçi lig bağlantısı hazırlanıyor", 586, 16, Color("9eb8a6"))
+	text("Sonuç şu anda bu cihazda saklanır.", 614, 14, Color("9eb8a6"))
+
+func buy_cosmetic(index: int) -> bool:
+	if index < 0 or index > 3: return false
+	var cost: int = [0, 75, 125, 200][index]
+	if not owned_cosmetics.has(index):
+		if crystals < cost: return false
+		crystals -= cost
+		owned_cosmetics.append(index)
+	cosmetic = index
+	save_best()
+	return true
+
+func draw_collection() -> void:
+	draw_world_background(2)
+	text("KOLEKSİYON", 50, 30, Color("70f6ff"))
+	text("%d KRİSTAL" % crystals, 96, 26, Color("ffd166"))
+	text("Bölüm ilk başarıları ve günlük yarış ödülleri", 131, 15, Color("9eb8a6"))
+	for i in 4:
+		var y := 180 + i * 95
+		box(Rect2(37, y, 406, 80), Color("25385a") if cosmetic == i else Color("172139"))
+		label_at(["Klasik", "İnci Halkası", "Kristal Kesim", "Altın Yörünge"][i], Vector2(180, y + 29), 22, Color.WHITE)
+		var status := "SEÇİLİ" if cosmetic == i else ("SEÇ" if owned_cosmetics.has(i) else "%d kristal" % [0,75,125,200][i])
+		label_at(status, Vector2(180, y + 58), 16, Color("ffd166"))
+		draw_circle(Vector2(374, y + 39), 22, PALETTES[1][i])
+		if i > 0: draw_arc(Vector2(374, y + 39), 25, 0, TAU, 32, Color("fff4b3"), 2, true)
+	text("Görünümler güç avantajı sağlamaz.", 592, 16, Color("9eb8a6"))
+	box(Rect2(37, 630, 406, 44), Color("25385a"))
+	text("Ses: Açık" if sound_on else "Ses: Kapalı", 659, 20)
+	box(PROFILE_BACK, Color("526bd8"))
+	text("Oyuna dön", 746, 22)
+
+func draw_world_background(world: int) -> void:
+	if world == 0:
+		draw_garden_background()
+	else:
+		draw_rect(Rect2(0, 0, 480, 800), Color("0b2138") if world == 1 else Color("130b2b"))
+		for i in 22:
+			var movement := elapsed * (9 if world == 1 else 4) if effects else 0.0
+			var pos := Vector2(fmod(i * 131.0 + sin(elapsed + i) * (9 if effects else 0), 470) + 5, fmod(i * 67.0 + movement, 800))
+			if world == 1:
+				draw_line(pos - Vector2(3,0), pos + Vector2(3,0), Color(0.7,0.9,1,0.35), 1, true)
+				draw_line(pos - Vector2(0,3), pos + Vector2(0,3), Color(0.7,0.9,1,0.35), 1, true)
+			else:
+				draw_rect(Rect2(pos, Vector2(18, 25)), Color(0.6,0.2,1,0.12))
+				draw_line(pos, pos + Vector2(18,0), Color(0.3,0.9,1,0.3), 2, true)
+	if ended and stage_won and effects:
+		for i in 26:
+			var pos := Vector2(fmod(i * 97.0, 460) + 10, fmod(i * 53.0 + celebration * 100, 800))
+			draw_rect(Rect2(pos, Vector2(4,7)), Color.from_hsv(float(i) / 26, 0.6, 1.0, maxf(0,1-celebration/6)))
+
+func setup_sound() -> void:
+	if DisplayServer.get_name() == "headless": return
+	audio_player = AudioStreamPlayer.new()
+	var stream := AudioStreamGenerator.new()
+	stream.mix_rate = 22050
+	stream.buffer_length = 0.15
+	audio_player.stream = stream
+	audio_player.volume_db = -18
+	add_child(audio_player)
+
+var tone_frequency := 0.0
+var tone_remaining := 0.0
+func play_tone(frequency: float, duration: float) -> void:
+	if not sound_on or not effects or audio_player == null: return
+	if not audio_player.playing: audio_player.play()
+	tone_frequency = frequency
+	tone_remaining = duration
+
+func feed_sound() -> void:
+	if audio_player == null or not audio_player.playing: return
+	var playback = audio_player.get_stream_playback()
+	if playback == null: return
+	for i in mini(playback.get_frames_available(), 4096):
+		var value := 0.0
+		if tone_remaining > 0 and sound_on:
+			value = sin(sound_phase) * minf(1.0, tone_remaining * 40) * 0.35
+			sound_phase = fmod(sound_phase + TAU * tone_frequency / 22050, TAU)
+			tone_remaining = maxf(0.0, tone_remaining - 1.0/22050)
+		playback.push_frame(Vector2(value, value))
