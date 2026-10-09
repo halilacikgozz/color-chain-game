@@ -346,6 +346,14 @@ func run_tests() -> void:
 	game.level_stars.fill(1)
 	for index in range(10,30):
 		check(game.start_stage(index) and game.has_move() and game.board.size() == 49, "All new stages have a playable opening")
+		for turn in int(game.stage_data()["moves"]):
+			if game.ended: break
+			game.chain.assign(solve_move(game))
+			game.release_pointer()
+			game.fall_tween.kill()
+			game.start_fall()
+			game.finish_fall()
+		check(game.stage_won, "Expanded stage %d solution score=%d ice=%d mission=%d" % [index+1,game.score,game.ice_left(),game.mission_count])
 	game.start_stage(10)
 	check(game.ice_left() == 16, "Valley ice has two layers")
 	game.score = 99999
@@ -427,6 +435,12 @@ func search_path(game, path: Array[int], color: int) -> void:
 		return
 	if path.size() >= 3:
 		var value := path.size() * 8
+		if game.campaign_mode and game.stage >= 10 and not game.mission_complete():
+			var kind: String = game.stage_data().get("mission", "")
+			if kind == "chain" and path.size() >= int(game.stage_data()["target"]): value += 3000
+			for index in path:
+				if game.special_name_key(game.specials[index]) == kind: value += 600
+				if kind == "relay" and game.relay[index] > 0: value += 400
 		var hit: Array[int] = path.duplicate()
 		for index in path:
 			if game.specials[index] == game.BOMB:
@@ -444,7 +458,7 @@ func search_path(game, path: Array[int], color: int) -> void:
 		if value > search_value:
 			search_value = value
 			search_best.assign(path)
-	if path.size() >= 9:
+	if path.size() >= 12:
 		return
 	var last: int = path.back()
 	for next in [last - 7, last + 7, last - 1, last + 1]:
