@@ -38,7 +38,7 @@ Oyun 10 duraklı bölüm haritasıyla açılır. İlk bölümü geçerek sırada
 - Hamle kalmazsa tahta otomatik yenilenir; skor korunur.
 - Yeniden başlat düğmesi skoru sıfırlar ve yeni tahta oluşturur; animasyon sırasında da çalışır.
 - Escape veya uygulamadan ayrılmak etkin seçimi iptal eder.
-- Renklerin üzerindeki rakamlar taş türlerini ayırt etmeye yardımcı olur.
+- Rakamların yerine dört Renk Canlısı vardır: pembe Kıvrım (sedefli şerit), turkuaz Akış (üç sıvı çekirdeği), sarı Nabız (ışık halkaları), mor Yörünge (iki dönen çekirdek). Renk ve iç şekil birlikte taş türünü ayırt eder. Seçilince hareketleri aynı ritme geçer; Kıvrım zincirin yönüne uzanır, Akış birleşir, Nabız ve Yörünge hızlanır. Sade efektlerde şekiller sabit kalır.
 
 ## Heyecan ve efektler
 
