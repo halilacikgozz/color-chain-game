@@ -776,17 +776,27 @@ func draw_map() -> void:
 		label_at(str(i + 1) if unlocked else "KİLİT", pos + Vector2(0, 7), 22 if unlocked else 10, Color.WHITE if unlocked else Color("809b87"))
 		var label_pos := pos + Vector2(95 if i % 2 == 0 else -100, 5)
 		label_at(LEVELS[i]["name"], label_pos, 12, Color("b8ccbb"))
-		label_at("★".repeat(level_stars[i]) if level_stars[i] > 0 else "☆☆☆", pos + Vector2(0, 41), 14, Color("ffd166") if level_stars[i] > 0 else Color("63806c"))
+		draw_rating(pos + Vector2(0, 37), level_stars[i], 6)
 	text("Bir bölümü geç, sıradaki durağı aç.", 656, 18, Color("b8f0cc"))
 	text("Final ödülü: Çiçek Bahçesi teması", 685, 17, Color("ffd166"))
 	box(PROFILE_BACK, Color("355b44"))
 	text("Serbest oyuna geç", 746, 21)
 	text("Can ve bekleme yok • İstediğin kadar dene", 785, 14, Color("9eb8a6"))
 
+func draw_rating(center: Vector2, rating: int, radius: float) -> void:
+	for n in 3:
+		var pos := center + Vector2((n - 1) * radius * 2.8, 0)
+		var points := PackedVector2Array()
+		for j in 10:
+			points.append(pos + Vector2.from_angle(-PI / 2 + j * TAU / 10) * radius * (1.0 if j % 2 == 0 else 0.45))
+		draw_colored_polygon(points, Color("ffd166") if n < rating else Color("355b44"))
+		points.append(points[0])
+		draw_polyline(points, Color("ffe6a3") if n < rating else Color("63806c"), 1.0, true)
+
 func draw_stage_result() -> void:
 	draw_rect(Rect2(ORIGIN - Vector2(9, 9), Vector2.ONE * (SIDE * CELL + 18)), Color(0.03, 0.1, 0.08, 0.94))
 	text("BÖLÜM TAMAMLANDI!" if stage_won else "BİR KEZ DAHA DENE", 340, 27, Color("b8f0cc"))
-	text("★".repeat(stage_rating) if stage_won else "☆☆☆", 402, 44, Color("ffd166"))
+	draw_rating(Vector2(240, 388), stage_rating if stage_won else 0, 20)
 	text("%d PUAN • %d HAMLE KALDI" % [score, moves_left], 448, 19)
 	text("+50 deneyim ilk tamamlamada" if stage_won else "Hedef: %d puan ve tüm buzlar" % LEVELS[stage]["goal"], 493, 18, Color("9eb8a6"))
 	text("Çiçek Bahçesi teması açıldı!" if stage_won and stage == 9 else ("Bölüm yıldızların kaydedildi." if stage_won else "%d buz kaldı; özel taşları kullan." % ice_left()), 540, 19, Color("ffd166"))
