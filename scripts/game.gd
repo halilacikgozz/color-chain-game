@@ -30,8 +30,9 @@ const LEVELS := [
 ]
 const WORLD_NAMES := ["Renk Bahçesi", "Buz Vadisi", "Neon Şehir"]
 const WORLD_TABS := [Rect2(25, 95, 140, 34), Rect2(170, 95, 140, 34), Rect2(315, 95, 140, 34)]
-const DAILY_BUTTON := Rect2(37, 652, 195, 40)
-const COLLECTION_BUTTON := Rect2(248, 652, 195, 40)
+const DAILY_BUTTON := Rect2(25, 652, 140, 40)
+const COLLECTION_BUTTON := Rect2(170, 652, 140, 40)
+const LEAGUE_BUTTON := Rect2(315, 652, 140, 40)
 const EXTRA_LEVELS := [
  {"name":"Kar Kapısı","moves":26,"goal":700,"ice":8,"colors":3,"mission":"bomb","target":1},
  {"name":"Kristal Köprü","moves":27,"goal":850,"ice":10,"colors":3,"mission":"chain","target":7},
@@ -495,6 +496,12 @@ func press(pos: Vector2, id: int) -> void:
 				if Rect2(37, 180 + i * 95, 406, 80).has_point(pos): buy_cosmetic(i)
 		return
 	if map_open:
+		if LEAGUE_BUTTON.has_point(pos):
+			map_open = false
+			league_open = true
+			league_message = "Lig yükleniyor…"
+			competition_client.send({"action":"leaderboard"})
+			return
 		for i in 3:
 			if WORLD_TABS[i].has_point(pos): world_page = i
 		if DAILY_BUTTON.has_point(pos):
@@ -965,6 +972,8 @@ func draw_map() -> void:
 	text("Finali geç, sıradaki dünyayı aç!", 634, 17, Color("b8f0cc"))
 	box(DAILY_BUTTON, Color("526bd8"), 10)
 	box(COLLECTION_BUTTON, Color("355b44"), 10)
+	box(LEAGUE_BUTTON, Color("25385a"), 10)
+	label_at("Haftalık lig", LEAGUE_BUTTON.get_center() + Vector2(0, 6), 17, Color.WHITE)
 	label_at("Günlük yarış", DAILY_BUTTON.get_center() + Vector2(0, 6), 17, Color.WHITE)
 	label_at("Koleksiyon", COLLECTION_BUTTON.get_center() + Vector2(0, 6), 17, Color.WHITE)
 	box(PROFILE_BACK, Color("355b44"))
