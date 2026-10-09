@@ -25,6 +25,8 @@ jobs:
         run: godot --headless --editor --path . --import
       - name: Test game rules
         run: timeout 30s godot --headless --path . --script tests/test_game.gd
+      - name: Verify competition replay
+        run: node --experimental-strip-types tests/test_replay.ts
       - name: Export web build
         run: |
           mkdir -p build/web
