@@ -458,7 +458,7 @@ func search_path(game, path: Array[int], color: int) -> void:
 		if value > search_value:
 			search_value = value
 			search_best.assign(path)
-	if path.size() >= 12:
+	if path.size() >= (12 if game.campaign_mode and game.stage >= 10 else 9):
 		return
 	var last: int = path.back()
 	for next in [last - 7, last + 7, last - 1, last + 1]:
