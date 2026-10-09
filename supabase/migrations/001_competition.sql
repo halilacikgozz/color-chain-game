@@ -7,19 +7,19 @@ alter table public.cc_members enable row level security;
 -- Only the authenticated Edge Function's service role may access these tables.
 revoke all on public.cc_players,public.cc_scores,public.cc_members from anon,authenticated;
 create or replace function public.cc_join(p_id uuid,p_week date) returns void language plpgsql security definer set search_path=public as $$
-declare t integer; n integer; previous_week date; previous_rank bigint;
+declare t integer; n integer; previous_week date; previous_rank bigint; previous_points bigint;
 begin
  perform pg_advisory_xact_lock(735501);
  if exists(select 1 from cc_members where player_id=p_id and week=p_week) then return; end if;
  select tier into t from cc_players where id=p_id;
  select max(week) into previous_week from cc_members where player_id=p_id and week<p_week;
  if previous_week is not null then
-  select ranking into previous_rank from (
-   select m.player_id,row_number() over(order by coalesce(sum(s.score),0) desc,m.player_id) ranking
+  select ranking,points into previous_rank,previous_points from (
+   select m.player_id,coalesce(sum(s.score),0) as points,row_number() over(order by coalesce(sum(s.score),0) desc,m.player_id) ranking
    from cc_members m left join cc_scores s on s.player_id=m.player_id and s.day>=previous_week and s.day<previous_week+7
    where m.week=previous_week and (m.tier,m.cohort)=(select tier,cohort from cc_members where player_id=p_id and week=previous_week)
    group by m.player_id) r where r.player_id=p_id;
-  t=least(3,t+case when previous_rank<=5 then 1 else 0 end);
+  t=least(3,t+case when previous_rank<=5 and previous_points>0 then 1 else 0 end);
   update cc_players set tier=t where id=p_id;
  end if;
  select count(*) into n from cc_members where week=p_week and tier=t;
