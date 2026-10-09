@@ -16,6 +16,18 @@ Oyun 10 duraklı bölüm haritasıyla açılır. İlk bölümü geçerek sırada
 - Haritadaki Serbest oyuna geç düğmesi önceki süreli/rahat oyunu açar. Harita düğmesiyle yolculuğa dön.
 - Bölüm ilerlemesi, yıldızlar ve tema aynı cihazda kaydedilir; önceki deneyim ve rekorlar korunur.
 
+## Üç dünya, günlük yarış ve koleksiyon
+
+- 30 bölüm: Renk Bahçesi → Buz Vadisi → Neon Şehir. Önceki dünyanın finalini geçerek sonraki dünyayı aç.
+- Buz Vadisi iki kat buz içerir; aynı hücreye iki ayrı hamlede ulaş. Neon Şehir'in ışıklı enerji düğümlerini temizle.
+- Yeni bölüm görevleri: bomba/şimşek/gökkuşağı etkinleştirme, uzun zincir ve enerji düğümleri. Puan, buz ve görev birlikte tamamlanmalıdır.
+- Bomba + şimşek üç satır ve bir sütunu temizler. Gökkuşağı + bomba/şimşek hedef rengin taşlarını o özel türe dönüştürüp zincirleme etkinleştirir.
+- Günlük yarış UTC gününe göre aynı tahta, 20 hamle ve x1 çarpan verir. Efektler rastgele tahta akışını değiştirmez. Tekrar deneme sınırsızdır; 500 puan günde bir 40 kristal +50 deneyim verir.
+- Bölümün ilk başarısı 25 kristal verir. Koleksiyonda İnci Halkası, Kristal Kesim, Altın Yörünge açılabilir; satın alınan görünümler tekrar seçilirken ücret alınmaz.
+- Canlı harita, hareketli kar/şehir ışıkları, zincirde akan ışık, iniş sekmesi, son üç hamle vurgusu, yıldızların sırayla gelişi ve kutlama konfeti eklendi.
+- Zincir uzadıkça ses tonu yükselir; koleksiyondaki Ses düğmesinden kapanır. Sade efektler hareket ve sesi azaltır.
+- Gerçek haftalık lig için Supabase bağlantısı gerekir. Kurulum `supabase/README.md` içinde. Sunucu bağlanmadan lig sıralaması gösterilmez. Günlük hamleler sunucuda tekrar oynatılarak doğrulanır.
+
 ## Oynanış
 
 - Fareye basılı tutarak veya parmağınla sürükleyerek aynı renk taşları bağla.
