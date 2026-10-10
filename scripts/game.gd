@@ -29,7 +29,7 @@ const LEVELS := [
 	{"name": "Bahçenin Kalbi", "moves": 24, "goal": 1000, "ice": 18, "colors": 4, "hint": "Final: tüm buzları kır ve 1000 puana ulaş!"}
 ]
 const WORLD_NAMES := ["Renk Bahçesi", "Buz Vadisi", "Neon Şehir"]
-const WORLD_TABS := [Rect2(25, 95, 140, 34), Rect2(170, 95, 140, 34), Rect2(315, 95, 140, 34)]
+const WORLD_TABS := [Rect2(25, 95, 140, 94), Rect2(170, 95, 140, 94), Rect2(315, 95, 140, 94)]
 const DAILY_BUTTON := Rect2(25, 652, 140, 40)
 const COLLECTION_BUTTON := Rect2(170, 652, 140, 40)
 const LEAGUE_BUTTON := Rect2(315, 652, 140, 40)
@@ -959,7 +959,7 @@ func check_stage_end() -> void:
 	queue_redraw()
 
 func map_node(index: int) -> Vector2:
-	return Vector2(105 if index % 2 == 0 else 325, 576 - index * 46)
+	return Vector2(105 if index % 2 == 0 else 325, 604 - index * 42)
 
 func draw_garden_background() -> void:
 	draw_rect(Rect2(0, 0, 480, 800), Color("0d241e"))
@@ -970,6 +970,57 @@ func draw_garden_background() -> void:
 		for j in 5:
 			draw_circle(Vector2(x, y) + Vector2.from_angle(j * TAU / 5) * 8, 4, Color(1, 0.65, 0.75, 0.25))
 
+func draw_world_card(world: int) -> void:
+	var rect: Rect2 = WORLD_TABS[world]
+	var origin := rect.position
+	var selected := world == world_page
+	var accent: Color = [Color("a5e988"), Color("9ce8ff"), Color("ee9dff")][world]
+	box(rect, [Color("193e2b"), Color("163854"), Color("2a1946")][world], 12)
+	var frame := StyleBoxFlat.new()
+	frame.bg_color = Color.TRANSPARENT
+	frame.border_color = accent if selected else Color(accent, 0.25)
+	frame.set_border_width_all(2 if selected else 1)
+	frame.set_corner_radius_all(12)
+	draw_style_box(frame, rect)
+	var t := elapsed if effects else 0.0
+	if world == 0:
+		# A tiny garden: rolling grass, curved leaves and a blooming flower.
+		draw_colored_polygon(PackedVector2Array([origin+Vector2(9,56),origin+Vector2(36,43),origin+Vector2(75,51),origin+Vector2(108,39),origin+Vector2(131,53),origin+Vector2(131,63),origin+Vector2(9,63)]), Color("2e6842"))
+		for n in 3:
+			var stem := origin + Vector2(34+n*35, 55)
+			var tip := stem + Vector2(sin(t*1.4+n)*2, -24-n%2*7)
+			draw_line(stem, tip, Color("95d783"), 2, true)
+			draw_colored_polygon(PackedVector2Array([stem+Vector2(0,-8),stem+Vector2(-13,-18),stem+Vector2(-15,-9),stem]), Color("69bd75"))
+			for petal in 5:
+				draw_circle(tip+Vector2.from_angle(petal*TAU/5)*6, 4, Color("ffb9cf") if n%2==0 else Color("ffdc8c"))
+			draw_circle(tip, 3, Color("fff3b4"))
+		draw_circle(origin+Vector2(119,20), 7, Color("efdc90"))
+	elif world == 1:
+		for n in 3:
+			var base := origin+Vector2(12+n*38,60)
+			var peak := base+Vector2(21,-39+n%2*9)
+			draw_colored_polygon(PackedVector2Array([base,peak,base+Vector2(45,0)]), Color("477fa6"))
+			draw_colored_polygon(PackedVector2Array([peak,peak+Vector2(-10,18),peak+Vector2(0,13),peak+Vector2(11,19)]), Color("e1f6ff"))
+		var crystal := origin+Vector2(79,47)
+		draw_colored_polygon(PackedVector2Array([crystal+Vector2(0,-21),crystal+Vector2(9,-7),crystal+Vector2(7,12),crystal+Vector2(-7,12),crystal+Vector2(-9,-7)]), Color("77d5ef"))
+		draw_line(crystal+Vector2(0,-21),crystal+Vector2(0,12),Color("d9faff"),2,true)
+		for n in 4:
+			var snow := origin+Vector2(20+n*29,16+sin(t+n)*3)
+			draw_circle(snow, 1.6, Color("daf7ff"))
+	else:
+		for n in 5:
+			var height := 23.0 + float((n*17)%27)
+			var building := Rect2(origin+Vector2(13+n*24,62-height),Vector2(18,height))
+			draw_rect(building,Color("442466"))
+			draw_line(building.position,building.position+Vector2(18,0),Color("ef88eb"),2,true)
+			for row in int(height/9):
+				draw_rect(Rect2(building.position+Vector2(4,5+row*9),Vector2(3,3)),Color("77e6ef"))
+			draw_line(origin+Vector2(10,63),origin+Vector2(130,63),Color("66d6eb"),1,true)
+		draw_arc(origin+Vector2(110,23),9,0,TAU,24,Color("e3a2ff"),2,true)
+		draw_circle(origin+Vector2(110+cos(t)*9,23+sin(t)*9),2,Color("f7d4ff"))
+	label_at(["Bahçe", "Buz Vadisi", "Neo Şehir"][world], origin+Vector2(70,83), 15, accent if selected else Color("d1dce2"))
+	if selected: draw_circle(origin+Vector2(126,80),3,accent)
+
 func draw_map() -> void:
 	draw_world_background(world_page)
 	text(WORLD_NAMES[world_page].to_upper(), 43, 29, Color("b8f0cc"))
@@ -977,8 +1028,7 @@ func draw_map() -> void:
 	for i in range(world_page * 10, world_page * 10 + 10): total += level_stars[i]
 	text("10 bölüm • %d / 30 yıldız • %d kristal" % [total, crystals], 74, 16, Color("ffd166"))
 	for i in 3:
-		box(WORLD_TABS[i], Color("526bd8") if i == world_page else Color("263d44"), 9)
-		label_at(["Bahçe", "Buz Vadisi", "Neon Şehir"][i], WORLD_TABS[i].get_center() + Vector2(0, 5), 14, Color.WHITE)
+		draw_world_card(i)
 	for i in range(1, 10):
 		var glow := 0.4 + sin(elapsed * 2 + i) * 0.15 if effects else 0.4
 		draw_line(map_node(i - 1), map_node(i), Color(0.4, 0.8, 0.7, glow) if stage_unlocked(world_page * 10 + i) else Color("355b44"), 7, true)
