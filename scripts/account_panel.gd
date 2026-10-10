@@ -21,12 +21,10 @@ var restore_confirm := false
 var dirty := false
 var retry_clock := 0.0
 var pending_snapshot: Dictionary = {}
-var code_shown := false
 var auto_enabled := false
 var bootstrap_done := false
 var stored_revision := -1
 var stored_owner := ""
-var regenerate_confirm := false
 var initial_save := false
 
 func _ready() -> void:
@@ -37,8 +35,7 @@ func _ready() -> void:
 	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(background)
 	add_label("HESAP VE BULUT KAYDI",Vector2(25,25),Vector2(430,48),27)
-	add_label("İlerlemeni e-postana bağla.
-Yeni telefonda aynı e-postayla giriş yap.",Vector2(30,79),Vector2(420,54),17)
+	add_label("İlerlemeni e-postana bağla.\nYeni telefonda aynı e-postayla giriş yap.",Vector2(30,79),Vector2(420,54),17)
 	email_field = LineEdit.new()
 	email_field.position = Vector2(37,143)
 	email_field.size = Vector2(406,48)
