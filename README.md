@@ -151,3 +151,6 @@ Kaynaklar: [Godot web export](https://docs.godotengine.org/en/4.4/tutorials/expo
 Bölüm Yolculuğu artık deniz üzerinde Palmiye Adası, Buz Vadisi ve Yeraltı Adası'nı gösteren 2.5D bir harita açar. Her ada kayıtlı tamamlanan bölüm sayısını, yıldızlarını ve kilit durumunu gösterir. Adalara dokunarak bölümlerini inceleyebilir, önceki dünyanın finalini geçerek ilerleyebilirsiniz.
 
 Ada arka planı imagegen ile oluşturuldu. Arka plan üzerindeki isimler, ilerleme ve etkileşimler Godot tarafından çizilir. `assets/island-map.txt`, görselin JPEG verisinin Base64 biçimidir ve web export içinde paketlenir.
+
+
+Adaların bölüm ekranları da artık onaylı tematik 2.5D manzaraları kullanır: tropik patika, kristalli buz vadisi ve lav mağaraları. Her adanın 10 bölümü 1–5 ve 6–10 sayfalarında seçilir. Durak numaraları, yıldızlar, kilitler ve sıradaki bölüm işareti kayıtlı ilerlemeye göre çizilir; bölüm kuralları ve mevcut kayıtlar korunur.
