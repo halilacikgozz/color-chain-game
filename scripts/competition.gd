@@ -47,7 +47,7 @@ func completed(result: int, code: int, _headers: PackedStringArray, bytes: Packe
 	var value = JSON.parse_string(bytes.get_string_from_utf8())
 	if result != HTTPRequest.RESULT_SUCCESS or code < 200 or code >= 300 or not value is Dictionary:
 		phase = ""
-		failed.emit("Lig bağlantısı tamamlanamadı. İnternetini kontrol et.")
+		failed.emit(str(value.get("error", "Lig bağlantısı tamamlanamadı. İnternetini kontrol et.")) if value is Dictionary else "Lig bağlantısı tamamlanamadı. İnternetini kontrol et.")
 		return
 	if phase == "signup" or phase == "refresh":
 		session = value
