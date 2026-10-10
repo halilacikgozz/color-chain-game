@@ -1,6 +1,6 @@
 // Replay the daily board on the server; clients never submit a trusted score.
-export function replay(day: string, moves: number[][]): number {
- if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || moves.length !== 20) throw Error('20 hamle gerekli');
+export function replay(day: string, moves: number[][], ruleset = 1): number {
+ if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || !Array.isArray(moves) || ![1,2].includes(ruleset) || moves.length < 1 || moves.length > 20 || (ruleset === 1 && moves.length !== 20)) throw Error('20 hamle gerekli');
  let seed = (Number(day.replaceAll('-', '')) * 71 + 501) & 0x7fffffff;
  const random = () => {seed = (Math.imul(seed,1103515245) + 12345) & 0x7fffffff; return (seed >>> 16) % 4;};
  let board = Array.from({length:49},random), specials = Array(49).fill(0), score = 0;
@@ -18,6 +18,7 @@ export function replay(day: string, moves: number[][]): number {
  };
  board[1]=board[2]=board[0];specials[1]=1;ensure();
  for(const path of moves) {
+  if(ruleset === 2 && !hasMove(board,specials)) throw Error('Hamle kalmadı');
   if(!Array.isArray(path)||path.length<3||path.length>49||new Set(path).size!==path.length||path.some(i=>!Number.isInteger(i)||i<0||i>=49))throw Error('Geçersiz zincir');
   let color=-1;
   for(let n=0;n<path.length;n++) {const i=path[n];if(n&&!adjacent(path[n-1],i))throw Error('Komşu değil');if(specials[i]!==3){if(color!==-1&&board[i]!==color)throw Error('Renk uyuşmuyor');color=board[i];}}
@@ -39,7 +40,20 @@ export function replay(day: string, moves: number[][]): number {
   for(let x=0;x<7;x++){let target=6;for(let y=6;y>=0;y--){const source=y*7+x;if(!cleared.has(source)){board[target*7+x]=board[source];specials[target*7+x]=source===anchor?reward:specials[source];target--;}}
    while(target>=0){board[target*7+x]=random();specials[target*7+x]=0;target--;}
   }
-  ensure();
+  if(ruleset === 1) ensure();
  }
+ if(ruleset === 2 && moves.length < 20 && hasMove(board,specials)) throw Error('Tur henüz bitmedi');
  return score;
+}
+
+export function hasMove(board: number[], specials: number[]): boolean {
+ const adjacent=(a:number,b:number)=>a>=0&&a<49&&b>=0&&b<49&&Math.abs(a%7-b%7)+Math.abs(Math.floor(a/7)-Math.floor(b/7))===1;
+ for(let middle=0;middle<49;middle++) {
+  const neighbours=[middle-7,middle+7,middle-1,middle+1].filter(n=>adjacent(middle,n));
+  for(let a=0;a<neighbours.length;a++) for(let b=a+1;b<neighbours.length;b++) {
+   const colors=[neighbours[a],middle,neighbours[b]].filter(i=>specials[i]!==3).map(i=>board[i]);
+   if(colors.every(c=>c===colors[0])) return true;
+  }
+ }
+ return false;
 }
