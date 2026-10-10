@@ -140,10 +140,10 @@ func run_tests() -> void:
 	game.quest_progress = 0
 	game.combo = 1
 	game.update_progress(3, 30)
-	check(game.stars == 1 and game.quests_done == 1 and game.xp == 41, "First quest grants one star and bonus XP")
+	check(game.stars == 0 and game.quests_done == 1 and game.xp == 41, "First quest grants crystals and bonus XP without extra stars")
 	for i in 5:
 		game.update_progress(3, 30)
-	check(game.stars == 2 and game.quests_done == 2, "Move quest rewards only after five valid chains")
+	check(game.stars == 0 and game.quests_done == 2, "Move quest rewards only after five valid chains")
 	check(not game.choose_theme(1), "Locked themes cannot be equipped")
 	game.stars = 3
 	check(game.choose_theme(1), "Three stars unlock Neon")
@@ -465,6 +465,19 @@ func run_tests() -> void:
 	game.open_home()
 	game.press(game.HOME_PLAY.get_center(),-1)
 	check(not game.timed_mode and not game.campaign_mode and not game.daily_mode and not game.home_open, "Free play starts unlimited relaxed mode")
+	var snapshot: Dictionary = game.progress_snapshot()
+	game.xp = 9876
+	check(game.restore_snapshot(snapshot) and game.xp == snapshot["xp"], "Cloud restore preserves progression")
+	var bad: Dictionary = snapshot.duplicate(true)
+	bad["level_bests"] = []
+	var before_bad: int = game.xp
+	check(not game.restore_snapshot(bad) and game.xp == before_bad, "Malformed cloud records leave local save intact")
+	game.account_panel.open()
+	game.select_cell(0)
+	check(game.account_open and game.chain.is_empty(), "Account panel pauses gameplay input")
+	game.account_panel.waiting = false
+	game.account_panel.close()
+	check(not game.account_open, "Closing account panel resumes navigation")
 	DirAccess.remove_absolute(game.save_path)
 	game.queue_free()
 	print("Color Chain tests: %d failures" % failures)
