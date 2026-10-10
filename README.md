@@ -172,17 +172,18 @@ Actions, Java 17 ve Android SDK 34 ile APK'yı export eder; imza, paket adı ve 
 
 Yıldızlar sadece bölüm başarısıdır. Deneyim oyuncu seviyesini yükseltir; görevler 30 deneyim ve 15 kristal verir. Kristaller baloncuk görünümlerinde kullanılır. Eski sürümde açılan temalar korunur. Tema seçimleri ve baloncuk koleksiyonu ana menüdeki **Görünüm** ekranının iki sekmesidir.
 
-## Hesabı başka telefona taşıma
+## E-posta ile hesap ve bulut kaydı
 
-1. Ayarlar → **Hesap ve bulut kaydı** → **Hesabımı bağla • kod oluştur**.
-2. Kurtarma kodunu güvenli bir yere kopyala. Kod hesabın anahtarıdır; paylaşma. İlk bulut kaydı otomatik oluşturulur.
-3. Yeni telefonda aynı ekrana kodu girip **Kodla hesabıma gir** seç.
-4. **Bulut kaydını kontrol et**, ardından **Buluttaki ilerlemeyi yükle** ve onayla.
+Ayarlar → Hesap ve bulut kaydı ekranında **İlerlememi e-postaya bağla** mevcut anonim oyuncuyu koruyarak e-posta doğrulaması başlatır. E-postadaki kod doğrulanınca ilk bulut kaydı oluşturulur. Yeni cihazda **Mevcut hesabıma giriş yap** ile aynı e-postaya kod gönderilir; yalnızca önceden bağlı hesaplara giriş yapılır. Bulut yükleme açık onay ve yerel yedek alır. Bölümler, rekorlar, deneyim, görevler, kristaller ve görünümler taşınır; devam eden tur taşınmaz. Lig puanı bulut ilerlemesinden üretilmez.
 
-Bölümler, bölüm yıldızları, rekorlar, deneyim, görevler, kristaller ve görünümler taşınır. Devam eden tur taşınmaz; cihazdaki önceki ilerleme yerel yedek dosyasında korunur. Sıralama aynı oyuncu kimliğinde kalır. Son değişiklikler 3 saniyelik beklemeden sonra otomatik kaydedilir; çıkmadan önce bulut kaydının başarılı olduğunu kontrol et.
+**Etkinleştirme bekleniyor:** SMTP henüz bağlı olmadığı için `competition.json` içindeki `email_ready` değeri false ve e-posta düğmeleri kapalı. SMTP bağlanıp aşağıdaki şablonlar ayarlanmalı; ardından bu değer true yapılıp web/APK tekrar yayınlanmalı. E-posta gönderimi ve gerçek iki cihazda giriş henüz doğrulanmadı.
 
-İki cihaz aynı anda oynarsa eski kayıt yeni kaydı ezmez. Çakışmada bulutu yeniden kontrol edip hangi ilerlemeyi kullanacağını seç. Kod yenilenirse önceki kod geçersiz olur. Kodu kaybedip bütün cihazlardan çıkış yaparsan hesabı geri getirecek başka yöntem yoktur; e-posta/Google kurtarma henüz sunulmuyor.
+Sunucu kurulumu: `003_cloud_progress.sql` ve `progress.ts` dosyasını dağıt. `tests/test_cloud.sql` atomik kayıt çakışmalarını ve özel erişimi kalıcı test değişikliği bırakmadan doğrular. Eski cihaz sürümü güncel kaydı sessizce ezemez; kayıt çakışmasında kullanıcı bulut/yerel ilerleme arasında seçim yapar. Bağlı hesaplarda değişiklikler 3 saniyelik beklemeyle buluta gider; çıkmadan önce kayıt başarısını kontrol et.
 
-Kurtarma kodu 256 bit rastgele sır içerir. Sunucu bu sırla Supabase Auth üzerinde yalnızca mevcut oyuncunun hesabını bağlar; gerçek e-posta adresi ve e-posta gönderimi kullanılmaz. Ham kod veritabanında saklanmaz. Bulut ilerlemesi doğrulanmış yarış skorundan ayrıdır; yerel ilerleme yüklemek lig puanı oluşturmaz. Yeni sunucu kurulumu için `003_cloud_progress.sql` ve `account.ts`/`progress.ts` dosyalarını da dağıt.
+### SMTP ve kod şablonları
 
-Doğrulama: Godot ilerleme/geçiş testleri, Node kayıt ve kod biçimi testleri, `tests/test_cloud.sql` ile kayıt çakışması ve özel erişim kontrolü (değişiklikler geri alınır). Gerçek cihazlar arasında yeni hesap bağlantısı kullanıcının kendi koduyla ayrıca denenmelidir.
+Supabase → Authentication → Emails → SMTP Settings. Test amaçlı Gmail SMTP kullanılacaksa ayrı oyun Gmail hesabı tercih edilir. Google iki aşamalı doğrulama ve uygulama şifresi kullanıcı tarafından hazırlanır; şifre yalnızca Supabase SMTP Password alanına girilir ve repoya/sohbete konmaz. Host `smtp.gmail.com`, Port `587`, Username ve Sender email aynı Gmail adresi, Sender name `Color Chain`.
+
+SMTP sonrası Emails → Magic link or OTP ve Change email address şablonlarını `supabase/templates/` altındaki HTML'lerle güncelle. Site URL oyun adresi olsun. Anonymous Sign-Ins ve Email etkin, Confirm email açık olmalı. E-posta bağlama mevcut anonim kimliği korur; doğrulama kapatılmamalı. Gmail SMTP küçük denemeler içindir; genel yayın için ayrı gönderim hizmeti ve doğrulanmış alan adı tercih edilir.
+
+Kaynaklar: https://supabase.com/docs/guides/auth/auth-smtp, https://supabase.com/docs/guides/auth/auth-anonymous, https://support.google.com/accounts/answer/185833, https://support.google.com/mail/answer/7104828.
