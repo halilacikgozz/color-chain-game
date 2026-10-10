@@ -4,7 +4,7 @@ Godot 4.4.1 ile hazırlanmış, telefon ve bilgisayar için 7×7 zincir oyunu pr
 
 ## Renk Bahçesi: bölüm yolculuğu
 
-Oyun 10 duraklı bölüm haritasıyla açılır. İlk bölümü geçerek sıradakini aç.
+Oyun sade ana menüyle açılır. Bölüm Yolculuğu ayrı haritayı açar. Günlük Etkinlik altın kupa kartıyla günlük yarışı, Koleksiyon albüm kartıyla görünümleri, Haftalık Sıralama madalya kartıyla çevrimiçi ligi açar. Geniş Serbest Oyna düğmesi doğrudan süre ve hamle sınırı olmayan rahat modu başlatır. Dişli simgesi ses ve animasyon ayarlarını açar. İlk bölümü geçerek sıradakini aç.
 
 - Bölümler sınırlı hamlede puan hedefine ulaşmayı ister; dördüncü bölümden itibaren tüm buzları da kırmalısın.
 - Buzlar hücrelerde kalır. O hücredeki taşı zincirle veya özel taş etkisiyle temizlemek buzu kırar.
