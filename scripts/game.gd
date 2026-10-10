@@ -1043,8 +1043,8 @@ func draw_map() -> void:
 		var data: Dictionary = LEVELS[index] if index < 10 else EXTRA_LEVELS[index - 10]
 		label_at(data["name"], pos + Vector2(95 if i % 2 == 0 else -100, 5), 12, Color("b8ccbb"))
 		draw_rating(pos + Vector2(0, 33), level_stars[index], 5)
-	text("Finali geç, sıradaki dünyayı aç!", 634, 17, Color("b8f0cc"))
-	text("Dünya finalini geçerek yenisini aç.", 672, 15, Color("9eb8a6"))
+	text("Finali geç, sıradaki dünyayı aç!", 662, 17, Color("b8f0cc"))
+	text("Dünya finalini geçerek yenisini aç.", 690, 15, Color("9eb8a6"))
 	box(PROFILE_BACK, Color("355b44"))
 	text("Ana menüye dön", 746, 21)
 	text("Can ve bekleme yok • İstediğin kadar dene", 785, 14, Color("9eb8a6"))
