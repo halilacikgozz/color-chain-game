@@ -547,8 +547,9 @@ func press(pos: Vector2, id: int) -> void:
 						world_page = i
 						island_overview = false
 			return
-		for i in 3:
-			if WORLD_TABS[i].has_point(pos): world_page = i
+		if Rect2(25,95,430,94).has_point(pos):
+			island_overview = true
+			return
 		if PROFILE_BACK.has_point(pos):
 			island_overview = true
 			return
@@ -995,6 +996,12 @@ func draw_island_overview() -> void:
 	if island_texture != null:
 		draw_texture_rect(island_texture, Rect2(0,0,480,800), false)
 	else: draw_rect(Rect2(0,0,480,800), Color("23b5d0"))
+	if effects:
+		for sparkle in 8:
+			var point := Vector2(378 + sin(sparkle*2.7)*51, 106 + sparkle*76)
+			var alpha := maxf(0.0,sin(elapsed*1.7+sparkle))*0.6
+			draw_line(point-Vector2(3,0),point+Vector2(3,0),Color(1,1,0.88,alpha),1,true)
+			draw_line(point-Vector2(0,3),point+Vector2(0,3),Color(1,1,0.88,alpha),1,true)
 	# The illustration stays decorative; all labels, locks and progress are live.
 	box(Rect2(70,12,340,48), Color("85522c"), 18)
 	label_at("ADA YOLCULUĞU", Vector2(240,44), 27, Color("fff2d2"))
@@ -1089,8 +1096,13 @@ func draw_map() -> void:
 	var total := 0
 	for i in range(world_page * 10, world_page * 10 + 10): total += level_stars[i]
 	text("10 bölüm • %d / 30 yıldız • %d kristal" % [total, crystals], 74, 16, Color("ffd166"))
-	for i in 3:
-		draw_world_card(i)
+	load_island_art()
+	if island_texture != null:
+		var image_size := island_texture.get_size()
+		var source_y: float = [0.60,0.39,0.14][world_page]
+		draw_texture_rect_region(island_texture, Rect2(25,95,430,94),Rect2(Vector2(0,image_size.y*source_y),Vector2(image_size.x,image_size.y*0.12)))
+	draw_rect(Rect2(25,95,430,94),Color(0.02,0.10,0.17,0.52))
+	label_at("‹ Ada haritasına dön",Vector2(240,151),22,Color.WHITE)
 	for i in range(1, 10):
 		var glow := 0.4 + sin(elapsed * 2 + i) * 0.15 if effects else 0.4
 		draw_line(map_node(i - 1), map_node(i), Color(0.4, 0.8, 0.7, glow) if stage_unlocked(world_page * 10 + i) else Color("355b44"), 7, true)
