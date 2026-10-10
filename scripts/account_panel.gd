@@ -1,7 +1,12 @@
 extends Control
 var game
 var status: Label
-var code_field: TextEdit
+var code_field: LineEdit
+var email_field: LineEdit
+var verify_button: Button
+var otp_type := "email"
+var otp_email := ""
+var email_ready := false
 var create_button: Button
 var restore_button: Button
 var fetch_button: Button
@@ -31,26 +36,39 @@ func _ready() -> void:
 	background.color = Color("09281b")
 	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(background)
-	add_label("HESAP VE BULUT KAYDI",Vector2(25,35),Vector2(430,48),27)
-	add_label("Kurtarma kodunu sakla; yeni telefonda gir.\nKod hesabının anahtarıdır, kimseyle paylaşma.",Vector2(30,96),Vector2(420,60),17)
-	code_field = TextEdit.new()
-	code_field.position = Vector2(37,167)
-	code_field.size = Vector2(406,92)
-	code_field.placeholder_text = "Kurtarma kodu"
-	code_field.add_theme_font_size_override("font_size",16)
+	add_label("HESAP VE BULUT KAYDI",Vector2(25,25),Vector2(430,48),27)
+	add_label("İlerlemeni e-postana bağla.
+Yeni telefonda aynı e-postayla giriş yap.",Vector2(30,79),Vector2(420,54),17)
+	email_field = LineEdit.new()
+	email_field.position = Vector2(37,143)
+	email_field.size = Vector2(406,48)
+	email_field.placeholder_text = "E-posta adresin"
+	email_field.virtual_keyboard_type = LineEdit.KEYBOARD_TYPE_EMAIL_ADDRESS
+	email_field.add_theme_font_size_override("font_size",20)
+	add_child(email_field)
+	code_field = LineEdit.new()
+	code_field.position = Vector2(37,205)
+	code_field.size = Vector2(406,48)
+	code_field.placeholder_text = "E-postadaki doğrulama kodu"
+	code_field.max_length = 8
+	code_field.virtual_keyboard_type = LineEdit.KEYBOARD_TYPE_NUMBER
+	code_field.add_theme_font_size_override("font_size",20)
 	add_child(code_field)
-	create_button = add_button("Hesabımı bağla • kod oluştur",276,create_account)
-	restore_button = add_button("Kodla hesabıma gir",334,restore_account)
-	status = add_label("Bulut kaydı henüz açılmadı.",Vector2(37,402),Vector2(406,80),16)
-	fetch_button = add_button("Bulut kaydını kontrol et",494,fetch_cloud)
-	save_button = add_button("Bu ilerlemeyi buluta kaydet",552,save_cloud)
-	load_button = add_button("Buluttaki ilerlemeyi yükle",610,load_cloud)
-	back_button = add_button("Geri dön",708,close)
-	add_label("Bağladıktan sonra kayıt otomatik güncellenir.",Vector2(20,769),Vector2(440,24),13)
+	create_button = add_button("İlerlememi e-postaya bağla",272,create_account)
+	restore_button = add_button("Mevcut hesabıma giriş yap",330,restore_account)
+	verify_button = add_button("Kodu doğrula",388,verify_email)
+	status = add_label("E-posta gönderimi hazırlanıyor.",Vector2(37,449),Vector2(406,70),16)
+	fetch_button = add_button("Bulut kaydını kontrol et",528,fetch_cloud)
+	save_button = add_button("Bu ilerlemeyi buluta kaydet",584,save_cloud)
+	load_button = add_button("Buluttaki ilerlemeyi yükle",640,load_cloud)
+	back_button = add_button("Geri dön",710,close)
+	add_label("Hesap bağlandıktan sonra kayıt otomatik güncellenir.",Vector2(20,772),Vector2(440,24),12)
+	email_ready = bool(game.competition_client.config.get("email_ready",false))
 	visible = false
 	var session: Dictionary = game.competition_client.session
 	var user: Dictionary = session.get("user",{})
-	linked = not bool(user.get("is_anonymous",true))
+	linked = not bool(user.get("is_anonymous",true)) and not str(user.get("email","")).ends_with(".invalid")
+	email_field.text = str(user.get("email","")) if linked else ""
 	var cfg := ConfigFile.new()
 	if cfg.load(game.save_path) == OK:
 		stored_revision = int(cfg.get_value("sync","revision",-1))
@@ -107,22 +125,40 @@ func request(payload: Dictionary) -> bool:
 	game.competition_client.send(payload)
 	return true
 
-func create_account() -> void:
-	if linked and not regenerate_confirm:
-		regenerate_confirm = true
-		status.text = "Yeni kod oluşturursan önceki kod geçersiz olur.
-Onaylamak için aynı düğmeye tekrar dokun."
+func valid_email(value: String) -> bool:
+	var regex := RegEx.new()
+	regex.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")
+	return value.length() <= 254 and regex.search(value) != null
+
+func start_email(link_account: bool) -> void:
+	if not email_ready:
+		status.text = "E-posta gönderimi henüz açılmadı.
+Bu cihazdaki ilerlemen korunuyor."
 		return
-	regenerate_confirm = false
-	if request({"action":"account_create"}): status.text = "Hesabın bağlanıyor…"
+	var address := email_field.text.strip_edges().to_lower()
+	if not valid_email(address):
+		status.text = "Geçerli bir e-posta adresi gir."
+		return
+	if linked and link_account:
+		status.text = "Hesabın zaten e-postana bağlı."
+		return
+	otp_email = address
+	otp_type = "email_change" if link_account else "email"
+	request({"action":"email_link" if link_account else "email_login","email":address})
+
+func create_account() -> void:
+	start_email(true)
 
 func restore_account() -> void:
-	var code := code_field.text.strip_edges()
-	if not code.begins_with("CC1.") or code.length() != 84:
-		status.text = "Kurtarma kodunu eksiksiz gir."
+	start_email(false)
+
+func verify_email() -> void:
+	var token := code_field.text.strip_edges()
+	if otp_email.is_empty() or token.length() < 6 or not token.is_valid_int():
+		status.text = "Önce e-postana kod gönder, sonra gelen kodu gir."
 		return
 	if FileAccess.file_exists(game.save_path): DirAccess.copy_absolute(game.save_path,"user://progress-before-account.cfg")
-	request({"action":"account_restore","code":code})
+	request({"action":"email_verify","email":otp_email,"token":token,"type":otp_type})
 
 func fetch_cloud() -> void:
 	restore_confirm = false
@@ -130,7 +166,7 @@ func fetch_cloud() -> void:
 
 func save_cloud() -> void:
 	if not linked:
-		status.text = "Önce hesabını bağla veya kodla giriş yap."
+		status.text = "Önce hesabını e-postana bağla veya giriş yap."
 		return
 	if revision < 0:
 		status.text = "Önce bulut kaydını kontrol et."
@@ -168,21 +204,18 @@ func load_cloud() -> void:
 func received(data: Dictionary) -> void:
 	waiting = false
 	match str(data.get("action","")):
+		"email_sent":
+			status.text = "E-postanı kontrol et ve gelen kodu gir.\nGörünmüyorsa gereksiz posta klasörüne de bak."
 		"account":
 			linked = true
 			auto_enabled = false
 			revision = -1
 			dirty = false
 			initial_save = bool(data.get("created",false))
-			if initial_save:
-				code_field.text = str(data.get("recovery_code",""))
-				code_field.editable = false
-				code_shown = true
-				status.text = "Kodunu şimdi güvenli bir yere kopyala.\nBulut kaydını kontrol edip ilk kaydını oluştur."
-			else:
-				code_field.text = ""
-				code_field.editable = true
-				status.text = "Giriş yapıldı. Bulut kaydını kontrol edip yükle."
+			code_field.text = ""
+			otp_email = ""
+			bootstrap_done = false
+			status.text = "E-posta doğrulandı. Bulut kaydı kontrol ediliyor."
 		"cloud_get":
 			linked = bool(data.get("linked",false))
 			var record = data.get("record")
@@ -199,7 +232,8 @@ func received(data: Dictionary) -> void:
 				auto_enabled = initial_save and linked
 				dirty = auto_enabled
 				initial_save = false
-				status.text = "Bulut kaydı yok. Bu ilerlemeyi kaydedebilirsin." if linked else "Hesabını bağla; ilerlemeni telefonlar arasında taşı."
+				status.text = "Bulut kaydı yok. Bu ilerlemeyi kaydedebilirsin." if linked else "Hesabını e-postana bağla; ilerlemeni telefonlar arasında taşı."
+			if not email_ready: status.text = "E-posta gönderimi henüz açılmadı.\nBu cihazdaki ilerlemen korunuyor."
 			var nickname := str(data.get("nickname",""))
 			if not nickname.begins_with("Oyuncu "):
 				game.player_name = nickname
@@ -226,9 +260,10 @@ func failure(message: String) -> void:
 	update_controls()
 
 func update_controls() -> void:
-	for button in [create_button,restore_button,fetch_button,save_button,load_button,back_button]: button.disabled = waiting
-	create_button.disabled = waiting
-	create_button.text = "Kurtarma kodunu yenile" if linked else "Hesabımı bağla • kod oluştur"
+	for button in [create_button,restore_button,verify_button,fetch_button,save_button,load_button,back_button]: button.disabled = waiting
+	create_button.disabled = waiting or linked or not email_ready
+	restore_button.disabled = waiting or not email_ready
+	verify_button.disabled = waiting or otp_email.is_empty() or not email_ready
 	save_button.disabled = waiting or not linked or revision < 0
 	load_button.disabled = waiting or cloud_record.is_empty()
 
