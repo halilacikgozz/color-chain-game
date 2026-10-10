@@ -36,6 +36,66 @@ jobs:
           test -s "build/web/game-${GITHUB_SHA}.wasm"
           test -s "build/web/game-${GITHUB_SHA}.pck"
           touch build/web/.nojekyll
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/cache@v4
+        with:
+          path: ~/.local/share/color-chain-signing
+          key: color-chain-personal-apk-signing-v1
+      - name: Prepare Android export
+        run: |
+          sdkmanager "platform-tools" "build-tools;34.0.0" "platforms;android-34"
+          mkdir -p "$HOME/.local/share/color-chain-signing" "$HOME/.config/godot"
+          APK_KEY="$HOME/.local/share/color-chain-signing/personal.keystore"
+          if [ ! -f "$APK_KEY" ]; then
+            keytool -genkeypair -keystore "$APK_KEY" -storepass android -keypass android -alias androiddebugkey -dname "CN=Color Chain Test,O=Color Chain,C=TR" -keyalg RSA -keysize 2048 -validity 10000
+          fi
+          python3 - <<'PYTHON'
+          import os
+          from pathlib import Path
+          settings = Path.home()/'.config/godot/editor_settings-4.4.tres'
+          settings.write_text('[gd_resource type="EditorSettings" format=3]\n\n[resource]\nexport/android/android_sdk_path = "'+os.environ['ANDROID_HOME']+'"\nexport/android/java_sdk_path = "'+os.environ['JAVA_HOME']+'"\n')
+          preset = Path('export_presets.cfg')
+          preset.write_text(preset.read_text().replace('version/code=1', 'version/code='+os.environ['GITHUB_RUN_NUMBER']).replace('version/name="1.0"', 'version/name="1.0.'+os.environ['GITHUB_RUN_NUMBER']+'"'))
+          PYTHON
+      - name: Export and verify installable APK
+        run: |
+          mkdir -p build/android build/web/downloads
+          export GODOT_ANDROID_KEYSTORE_RELEASE_PATH="$HOME/.local/share/color-chain-signing/personal.keystore"
+          export GODOT_ANDROID_KEYSTORE_RELEASE_USER=androiddebugkey
+          export GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD=android
+          godot --headless --path . --export-release Android build/android/color-chain.apk
+          "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose build/android/color-chain.apk
+          "$ANDROID_HOME/build-tools/34.0.0/aapt" dump badging build/android/color-chain.apk > build/android/apk-info.txt
+          python3 - <<'PYTHON'
+          from pathlib import Path
+          import zipfile
+          info = Path('build/android/apk-info.txt').read_text()
+          assert "name='com.halilacikgozz.colorchain'" in info
+          assert "android.permission.INTERNET" in info
+          with zipfile.ZipFile('build/android/color-chain.apk') as apk:
+              files = apk.namelist()
+              assert 'lib/arm64-v8a/libgodot_android.so' in files
+              assert 'lib/armeabi-v7a/libgodot_android.so' in files
+              assert any(name.startswith('assets/') for name in files)
+          print(info)
+          PYTHON
+          cp build/android/color-chain.apk build/web/downloads/color-chain.apk
+          sha256sum build/android/color-chain.apk > build/android/SHA256SUMS.txt
+          cp assets/icon.svg build/web/downloads/icon.svg
+          python3 - <<'PYTHON'
+          import os
+          from pathlib import Path
+          page = Path('android-install.html').read_text().replace('{{VERSION}}','1.0.'+os.environ['GITHUB_RUN_NUMBER']).replace('{{APK_SIZE}}',str(round(Path('build/android/color-chain.apk').stat().st_size/1048576,1)))
+          Path('build/web/android.html').write_text(page)
+          PYTHON
+      - uses: actions/upload-artifact@v4
+        with:
+          name: color-chain-android
+          path: build/android/
+          retention-days: 90
       - uses: actions/upload-pages-artifact@v4
         if: github.event_name != 'pull_request'
         with:
