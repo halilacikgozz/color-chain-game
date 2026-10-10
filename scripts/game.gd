@@ -985,8 +985,8 @@ func check_stage_end() -> void:
 
 func map_node(index: int) -> Vector2:
 	var positions := [
-		[Vector2(172,606),Vector2(256,493),Vector2(174,316),Vector2(343,326),Vector2(309,146)],
-		[Vector2(164,625),Vector2(279,499),Vector2(330,351),Vector2(165,268),Vector2(294,159)],
+		[Vector2(172,606),Vector2(256,493),Vector2(154,316),Vector2(353,326),Vector2(309,146)],
+		[Vector2(164,605),Vector2(279,499),Vector2(330,351),Vector2(165,268),Vector2(294,159)],
 		[Vector2(238,625),Vector2(267,458),Vector2(145,286),Vector2(345,267),Vector2(246,129)]
 	]
 	return positions[world_page][index % 5]
