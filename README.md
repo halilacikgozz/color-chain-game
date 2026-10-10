@@ -154,3 +154,8 @@ Ada arka planı imagegen ile oluşturuldu. Arka plan üzerindeki isimler, ilerle
 
 
 Adaların bölüm ekranları da artık onaylı tematik 2.5D manzaraları kullanır: tropik patika, kristalli buz vadisi ve lav mağaraları. Her adanın 10 bölümü 1–5 ve 6–10 sayfalarında seçilir. Durak numaraları, yıldızlar, kilitler ve sıradaki bölüm işareti kayıtlı ilerlemeye göre çizilir; bölüm kuralları ve mevcut kayıtlar korunur.
+
+
+### Mobil performans
+
+Boncuklar boşta hareket etmez. Her renk ve özel taş kabuğu 64×64 piksel görsele bir defa çizilir, sonra aynı görseller paylaşılır; tema değişince önbellek yenilenir. Boştaki tahta ve ana menü sürekli yeniden çizilmez. Seçim, patlama ve düşme korunur; geçici parçacıklar en fazla 48, özel efekt dalgaları en fazla 6 ile sınırlıdır. Harita animasyonları 15, etkileşim efektleri 30 çizim/saniye ile güncellenir; düşme tween'i kendi çizim güncellemelerini korur. Gerçek Android cihazında FPS ölçümü yapılmadı.
