@@ -19,10 +19,8 @@ Godot otomatik kurallar ve 30 bölüm koşumları, günlük puan tekrar hesaplam
 Önerilen kaldırmalar bu inceleme kapsamında uygulanmadı.
 
 
-## 1–3 numaralı öneriler uygulandı
+## 1–3 numaralı önerilerin durumu
 
-- Genel yıldız sayacı kaldırıldı; bölüm yıldızları, deneyim ve kristallerin işlevleri netleştirildi. Görev ödülü 15 kristal +30 deneyim oldu. Önceden açılan temalar korunur.
-- Tema ve baloncuk seçimleri **Görünüm** ekranında iki sekmeye toplandı.
-- Mevcut oyuncu kimliğini koruyan kurtarma kodu ve bulut kaydı eklendi. E-posta/Google yerine ek hizmet gerektirmeyen kodla giriş kullanılıyor. Kaydı yüklemek açık onay ister; yerel yedek alınır; eski sürümle diğer cihazın kaydı sessizce ezilmez.
-
-Kodu saklama sorumluluğu oyuncudadır. E-posta ile ikinci kurtarma yolu henüz yok; gerçek telefonlar arası bağlantı testi kullanıcının kendi kodunu oluşturmasını gerektirir.
+1. Genel yıldız sayacı kaldırıldı; görev ödülü 15 kristal +30 deneyim oldu. Önceden açılan temalar korunur.
+2. Tema ve baloncuk seçimleri Görünüm ekranında iki sekmeye toplandı.
+3. Kullanıcının tercihiyle e-posta doğrulama kodu ve bulut kaydı hazırlandı. SMTP bağlantısı eksik olduğu için e-posta giriş düğmeleri henüz etkin değil. Kod doğrulaması oturumu koruyarak bağlama/giriş yapar; bulut yüklemeden önce yerel yedek alır; sürüm çakışmalarını engeller. Gerçek e-posta teslimi ve iki cihazda giriş SMTP kurulduktan sonra doğrulanacak.
