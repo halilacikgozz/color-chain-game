@@ -63,8 +63,22 @@ func run_tests() -> void:
 	for i in 49:
 		game.board[i] = (i % 7 + i / 7) % 4
 	check(not game.has_move(), "Checker pattern has no move")
+	game.specials.fill(0)
+	game.specials[1] = game.RAINBOW
+	game.board[0] = 0
+	game.board[2] = 0
+	check(game.has_move(), "Rainbow connects legal moves")
+	game.specials.fill(0)
+	for i in 49: game.board[i] = (i % 7 + i / 7) % 4
+	var stuck = game.board.duplicate()
+	game.score = 1234
+	game.finish_fall()
+	check(game.ended and game.no_moves_end and game.score == 1234 and game.board == stuck, "No moves shows results without changing board or score")
+	check(game.valid_player_name("Çağrı_42") and not game.valid_player_name("ab") and not game.valid_player_name("adı boş"), "Player names support Turkish and reject invalid names")
+	game.restart()
+	check(not game.ended and not game.no_moves_end, "Only explicit restart starts a new round")
 	game.ensure_move()
-	check(game.has_move(), "Stuck boards recover")
+	check(game.has_move(), "Opening boards recover")
 	game.chain.clear()
 	game.board.fill(0)
 	game.select_cell(0)
