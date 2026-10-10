@@ -172,6 +172,15 @@ var bubble_viewports: Array[SubViewport] = []
 var bubble_cache_signature := ""
 var bubble_cache_ready := false
 var redraw_clock := 0.0
+var player_name := ""
+var pending_player_name := ""
+var name_open := false
+var name_message := "3–16 harf, rakam, _ veya - kullan."
+var name_field: LineEdit
+const NAME_SAVE := Rect2(65,390,350,56)
+const NAME_CANCEL := Rect2(65,462,350,48)
+const LEAGUE_NAME := Rect2(106,105,268,37)
+var no_moves_end := false
 var elapsed := 0.0
 var impact := 0.0
 var longest := 0
@@ -190,6 +199,7 @@ func _ready() -> void:
 	level_bests.resize(30)
 	level_bests.fill(0)
 	load_progress()
+	setup_name_field()
 	save_best()
 	restart()
 	home_open = true
@@ -198,6 +208,8 @@ func load_progress() -> void:
 	var config := ConfigFile.new()
 	if config.load(save_path) != OK:
 		return
+	player_name = str(config.get_value("profile", "name", ""))
+	effects = bool(config.get_value("settings", "effects", true))
 	best = maxi(0, int(config.get_value("game", "best", 0)))
 	timed_best = maxi(0, int(config.get_value("progress", "timed_best", 0)))
 	xp = maxi(0, int(config.get_value("progress", "xp", 0)))
@@ -249,6 +261,8 @@ func save_best() -> void:
 	config.set_value("daily", "rewarded", daily_rewarded)
 	config.set_value("daily", "attempts", daily_attempts)
 	config.set_value("settings", "sound", sound_on)
+	config.set_value("settings", "effects", effects)
+	config.set_value("profile", "name", player_name)
 	config.save(save_path)
 
 func player_level() -> int:
@@ -334,6 +348,7 @@ func restart() -> void:
 	home_open = false
 	settings_open = false
 	stage_won = false
+	no_moves_end = false
 	stage_rating = 0
 	mission_count = 0
 	celebration = 0.0
@@ -394,7 +409,7 @@ func _process(delta: float) -> void:
 	if ended: celebration += delta
 	feed_sound()
 	impact = maxf(0.0, impact - delta * 3.0)
-	if focused and started and not ended and not profile_open and not collection_open and not league_open and not map_open and not home_open and not settings_open:
+	if focused and started and not ended and not name_open and not profile_open and not collection_open and not league_open and not map_open and not home_open and not settings_open:
 		combo_left = maxf(0.0, combo_left - delta)
 		if combo_left <= 0.0:
 			combo = 0
@@ -426,8 +441,8 @@ func _process(delta: float) -> void:
 func needs_continuous_redraw() -> bool:
 	if not focused: return false
 	if map_open: return effects
-	if home_open or settings_open or league_open or profile_open or collection_open: return false
-	return busy or not particles.is_empty() or not floaters.is_empty() or not special_waves.is_empty() or impact > 0.0 or arrival > 0.0 or (effects and not chain.is_empty()) or (started and timed_mode and not ended) or (ended and stage_won and celebration < 6.0)
+	if name_open or home_open or settings_open or league_open or profile_open or collection_open: return false
+	return busy or not particles.is_empty() or not floaters.is_empty() or not special_waves.is_empty() or impact > 0.0 or arrival > 0.0 or (effects and not chain.is_empty()) or (started and timed_mode and not ended) or (ended and ((stage_won and celebration < 6.0) or (no_moves_end and celebration < 0.9)))
 
 func end_round() -> void:
 	ended = true
@@ -459,7 +474,7 @@ func can_join_chain(index: int) -> bool:
 	return specials[index] == RAINBOW or color == -1 or board[index] == color
 
 func select_cell(index: int) -> void:
-	if index < 0 or busy or ended or profile_open or collection_open or league_open or map_open or home_open or settings_open:
+	if index < 0 or busy or ended or profile_open or collection_open or league_open or map_open or home_open or settings_open or name_open:
 		return
 	if chain.is_empty():
 		chain.append(index)
@@ -473,6 +488,11 @@ func select_cell(index: int) -> void:
 	queue_redraw()
 
 func _input(event: InputEvent) -> void:
+	if name_open:
+		if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE: close_name_dialog()
+		elif event is InputEventScreenTouch and event.pressed: press(event.position,event.index)
+		elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT: press(event.position,-1)
+		return
 	if event is InputEventScreenTouch:
 		if event.pressed and pointer == -2:
 			press(event.position, event.index)
@@ -509,14 +529,21 @@ func press(pos: Vector2, id: int) -> void:
 	queue_redraw()
 
 func handle_press(pos: Vector2, id: int) -> void:
+	if name_open:
+		if NAME_CANCEL.has_point(pos): close_name_dialog()
+		elif NAME_SAVE.has_point(pos): save_player_name()
+		return
+	if no_moves_end and effects and celebration < 0.7 and not home_open: return
 	if settings_open:
 		if PROFILE_BACK.has_point(pos): open_home()
 		elif Rect2(37,210,406,64).has_point(pos): sound_on = not sound_on
 		elif Rect2(37,290,406,64).has_point(pos): effects = not effects
+		elif Rect2(37,370,406,64).has_point(pos): open_name_dialog()
 		save_best()
 		return
 	if home_open:
-		if HOME_JOURNEY.has_point(pos):
+		if Rect2(105,727,270,48).has_point(pos): open_name_dialog()
+		elif HOME_JOURNEY.has_point(pos):
 			home_open = false
 			island_overview = true
 			map_open = true
@@ -537,7 +564,8 @@ func handle_press(pos: Vector2, id: int) -> void:
 			settings_open = true
 		return
 	if league_open:
-		if PROFILE_BACK.has_point(pos):
+		if LEAGUE_NAME.has_point(pos): open_name_dialog()
+		elif PROFILE_BACK.has_point(pos):
 			league_open = false
 			if navigation_origin == "home": open_home()
 		elif Rect2(37, 620, 406, 48).has_point(pos):
@@ -548,7 +576,7 @@ func handle_press(pos: Vector2, id: int) -> void:
 		league_open = true
 		navigation_origin = "game"
 		league_message = "Puan gönderiliyor…"
-		competition_client.send({"action":"submit", "day":daily_day, "moves":daily_replay})
+		competition_client.send({"action":"submit", "day":daily_day, "moves":daily_replay, "ruleset":2})
 		return
 	if collection_open:
 		if PROFILE_BACK.has_point(pos):
@@ -643,7 +671,7 @@ func handle_press(pos: Vector2, id: int) -> void:
 func release_pointer() -> void:
 	dragging = false
 	pointer = -2
-	if busy or ended or profile_open or collection_open or league_open or map_open or home_open or settings_open:
+	if busy or ended or profile_open or collection_open or league_open or map_open or home_open or settings_open or name_open:
 		return
 	if chain.size() < 3:
 		chain.clear()
@@ -808,7 +836,6 @@ func finish_fall() -> void:
 	offsets.fill(0.0)
 	fall_progress = 0.0
 	arrival = 0.32 if effects else 0.0
-	ensure_move()
 	busy = false
 	if daily_mode:
 		if moves_left <= 0: finish_daily()
@@ -816,31 +843,44 @@ func finish_fall() -> void:
 		check_stage_end()
 	elif timed_mode and remaining <= 0.0:
 		end_round()
+	if not ended and not has_move(): finish_no_moves()
 	queue_redraw()
 
 func has_move() -> bool:
-	var visited: Array[int] = []
-	for start in board.size():
-		if visited.has(start):
-			continue
-		var pending: Array[int] = [start]
-		visited.append(start)
-		var count := 0
-		while not pending.is_empty():
-			var current: int = pending.pop_back()
-			count += 1
-			if count >= 3:
-				return true
-			var pos := Vector2i(current % SIDE, current / SIDE)
-			for direction in DIRECTIONS:
-				var next: Vector2i = pos + direction
-				if next.x < 0 or next.y < 0 or next.x >= SIDE or next.y >= SIDE:
-					continue
-				var index := next.y * SIDE + next.x
-				if board[index] == board[start] and not visited.has(index):
-					visited.append(index)
-					pending.append(index)
+	# Every legal minimum chain has a middle cell and two distinct neighbours.
+	for middle in board.size():
+		var neighbours: Array[int] = []
+		var cell := Vector2i(middle % SIDE,middle / SIDE)
+		for direction in DIRECTIONS:
+			var next: Vector2i = cell + direction
+			if next.x >= 0 and next.x < SIDE and next.y >= 0 and next.y < SIDE:
+				neighbours.append(next.y*SIDE+next.x)
+		for left in neighbours.size():
+			for right in range(left+1,neighbours.size()):
+				var color := -1
+				var valid := true
+				for index in [neighbours[left],middle,neighbours[right]]:
+					if specials[index] == RAINBOW: continue
+					if color >= 0 and board[index] != color: valid = false
+					color = board[index]
+				if valid: return true
 	return false
+
+func finish_no_moves() -> void:
+	if ended: return
+	if daily_mode: finish_daily()
+	else:
+		ended = true
+		stage_won = false
+		cancel_selection()
+		best = maxi(best,score)
+		if timed_mode and not campaign_mode: timed_best = maxi(timed_best,score)
+		save_best()
+	no_moves_end = true
+	celebration = 0.0
+	message = "Hamle kalmadı. Puanın kaydedildi."
+	play_tone(330,0.18)
+	queue_redraw()
 
 func ensure_move() -> void:
 	if has_move():
@@ -1209,7 +1249,7 @@ func draw_rating(center: Vector2, rating: int, radius: float) -> void:
 
 func draw_stage_result() -> void:
 	draw_rect(Rect2(ORIGIN - Vector2(9, 9), Vector2.ONE * (SIDE * CELL + 18)), Color(0.03, 0.1, 0.08, 0.94))
-	text("BÖLÜM TAMAMLANDI!" if stage_won else "BİR KEZ DAHA DENE", 340, 27, Color("b8f0cc"))
+	text("BÖLÜM TAMAMLANDI!" if stage_won else ("HAMLE KALMADI" if no_moves_end else "HAMLE HAKKI BİTTİ"), 340, 27, Color("b8f0cc"))
 	draw_rating(Vector2(240, 388), mini(stage_rating, int(celebration / 0.25) + 1) if stage_won and effects else stage_rating, 20)
 	text("%d PUAN • %d HAMLE KALDI" % [score, moves_left], 448, 19)
 	text("İlk başarı: +50 deneyim +25 kristal" if stage_won else "Hedef: %d puan ve tüm buzlar" % stage_data()["goal"], 493, 18, Color("9eb8a6"))
@@ -1293,6 +1333,9 @@ func draw_special_effect(wave: Dictionary) -> void:
 			draw_arc(targets[n], 8 + age * 22, 0, TAU, 24, color, 2, true)
 
 func _draw() -> void:
+	if name_open:
+		draw_name_dialog()
+		return
 	if home_open:
 		draw_home()
 		return
@@ -1391,23 +1434,28 @@ func _draw() -> void:
 	else:
 		text("Görev: %s (%d/%d)" % [quest_title(), quest_progress, quest_target()], 662, 15, Color("9caac7"))
 	box(RESTART, Color("526bd8"))
-	text(("Sonraki bölüm" if stage < 29 else "Dünyalar tamamlandı!") if campaign_mode and stage_won else ("Tekrar dene" if ended else "Yeniden başlat"), 723, 21)
+	text(("Sonraki bölüm" if stage < 29 else "Dünyalar tamamlandı!") if campaign_mode and stage_won else ("Yeni oyun" if no_moves_end and not campaign_mode else ("Tekrar dene" if ended else "Yeniden başlat")), 723, 21)
 	box(MODE_BUTTON, Color("172139"), 9)
 	box(EFFECTS_BUTTON, Color("172139"), 9)
 	label_at("Bölüm haritası" if campaign_mode or daily_mode else ("Mod: 60 sn" if timed_mode else "Mod: Rahat"), Vector2(134, 775), 15, Color("9caac7"))
 	label_at("Efektler: Açık" if effects else "Efektler: Sade", Vector2(346, 775), 15, Color("9caac7"))
-	if campaign_mode and ended:
+	if no_moves_end and effects and celebration < 0.7:
+		draw_rect(Rect2(ORIGIN-Vector2(9,9),Vector2.ONE*(SIDE*CELL+18)),Color(0.03,0.05,0.1,0.92))
+		var progress := clampf(celebration/0.7,0.0,1.0)
+		text("HAMLE KALMADI",390+(1.0-progress)*22,30,Color("ffd166"))
+		text("Tur tamamlandı",445,20,Color("b8f0cc"))
+	elif campaign_mode and ended:
 		draw_stage_result()
 	elif daily_mode and ended:
 		draw_daily_result()
 	elif ended:
 		draw_rect(Rect2(ORIGIN - Vector2(9, 9), Vector2.ONE * (SIDE * CELL + 18)), Color(0.03, 0.05, 0.1, 0.9))
-		text("%s MADALYA" % medal(score) if score >= 100 else "TUR TAMAMLANDI", 354, 28, Color("ffd166"))
+		text("HAMLE KALMADI" if no_moves_end else ("%s MADALYA" % medal(score) if score >= 100 else "TUR TAMAMLANDI"), 354, 28, Color("ffd166"))
 		text("%d PUAN" % score, 415, 38)
 		text("En uzun zincir: %d taş" % longest, 465, 20, Color("58d8ce"))
 		text("+%d deneyim • Seviye %d" % [round_xp, player_level()], 500, 19, Color("9caac7"))
 		text(next_medal(score), 545, 20, Color("ffd166"))
-		text("Yeni tur için Tekrar oyna'ya dokun.", 592, 16, Color("9caac7"))
+		text("Hazır olduğunda yeni tur başlat.", 592, 16, Color("9caac7"))
 
 func special_name_key(kind: int) -> String:
 	return ["", "bomb", "lightning", "rainbow"][kind]
@@ -1469,7 +1517,7 @@ func finish_daily() -> void:
 
 func draw_daily_result() -> void:
 	draw_rect(Rect2(ORIGIN - Vector2(9, 9), Vector2.ONE * (SIDE * CELL + 18)), Color(0.03, 0.05, 0.1, 0.94))
-	text("GÜNLÜK YARIŞ TAMAMLANDI", 340, 24, Color("70f6ff"))
+	text("HAMLE KALMADI" if no_moves_end else "GÜNLÜK YARIŞ TAMAMLANDI", 340, 24, Color("70f6ff"))
 	text("%d PUAN" % score, 401, 36)
 	text("Bugünün en iyisi: %d" % daily_best, 451, 22, Color("ffd166"))
 	text("500 puan: günde bir +40 kristal", 502, 17, Color("9eb8a6"))
@@ -1565,16 +1613,34 @@ func random_color(count: int) -> int:
 	return (daily_random >> 16) % count
 
 func league_updated(data: Dictionary) -> void:
+	if not pending_player_name.is_empty():
+		if bool(data.get("profile_saved",false)):
+			player_name = str(data.get("nickname",pending_player_name))
+			pending_player_name = ""
+			save_best()
+			close_name_dialog()
+		else:
+			pending_player_name = ""
+			name_message = "Oyuncu adı kaydedilemedi; yeniden dene."
+			name_field.editable = true
 	league_data = data
-	league_message = "İlk 5 oyuncu sonraki hafta yükselir."
+	league_message = "Günlük en iyi puanların haftalık toplamı yarışır."
+	queue_redraw()
 func league_failed(value: String) -> void:
 	league_message = value
+	if not pending_player_name.is_empty():
+		pending_player_name = ""
+		name_message = value
+		name_field.editable = true
+	queue_redraw()
 func draw_league() -> void:
 	draw_world_background(2)
 	text("HAFTALIK LİG", 50, 30, Color("70f6ff"))
 	var tier := clampi(int(league_data.get("tier",0)), 0, 3)
 	text(["Bronz", "Gümüş", "Altın", "Elmas"][tier], 98, 27, Color("ffd166"))
-	text(league_message, 143, 14, Color("9eb8a6"))
+	box(LEAGUE_NAME,Color("25385a"),12)
+	label_at(player_name+" ›" if not player_name.is_empty() else "Oyuncu adını oluştur ›",LEAGUE_NAME.get_center()+Vector2(0,5),15,Color.WHITE)
+	text(league_message, 163, 12, Color("9eb8a6"))
 	var rows: Array = league_data.get("rows", [])
 	if rows.is_empty():
 		text("Gerçek oyuncuların sonuçları burada görünür.", 260, 17, Color("9eb8a6"))
@@ -1739,6 +1805,7 @@ func draw_home() -> void:
 	menu_icon("play",Vector2(91,648),Color("e3f4d4"))
 	label_at("Serbest Oyna",Vector2(271,647),27,Color("eef6d7"))
 	label_at("Sınırsız hamle, rahat oyun",Vector2(271,675),15,Color("c4e6c3"))
+	label_at(player_name+" ›" if not player_name.is_empty() else "Oyuncu adını oluştur ›",Vector2(240,758),17,Color("bce2c2"))
 	menu_icon("gear",HOME_SETTINGS.get_center(),Color("a6d3b0"))
 
 func draw_settings() -> void:
@@ -1748,5 +1815,67 @@ func draw_settings() -> void:
 	text("Ses: Açık" if sound_on else "Ses: Kapalı",250,23)
 	box(Rect2(37,290,406,64),Color("163d2d"))
 	text("Animasyonlar: Açık" if effects else "Animasyonlar: Sade",330,23)
+	box(Rect2(37,370,406,64),Color("163d2d"))
+	text("Oyuncu adı: "+player_name if not player_name.is_empty() else "Oyuncu adını oluştur",410,21)
 	box(PROFILE_BACK,Color("14864c"))
 	text("Ana menüye dön",746,22)
+
+func setup_name_field() -> void:
+	name_field = LineEdit.new()
+	name_field.position = Vector2(65,286)
+	name_field.size = Vector2(350,56)
+	name_field.max_length = 16
+	name_field.placeholder_text = "Oyuncu adın"
+	name_field.add_theme_font_size_override("font_size",24)
+	name_field.visible = false
+	name_field.text_submitted.connect(func(_value: String): save_player_name())
+	add_child(name_field)
+
+func valid_player_name(value: String) -> bool:
+	var pattern := RegEx.new()
+	pattern.compile("^[\\p{L}\\p{N}_-]{3,16}$")
+	return pattern.search(value) != null
+
+func open_name_dialog() -> void:
+	cancel_selection()
+	name_open = true
+	name_message = "3–16 harf, rakam, _ veya - kullan."
+	name_field.text = player_name
+	name_field.editable = true
+	name_field.visible = true
+	name_field.grab_focus()
+	queue_redraw()
+
+func close_name_dialog() -> void:
+	name_open = false
+	name_field.release_focus()
+	name_field.visible = false
+	queue_redraw()
+
+func save_player_name() -> void:
+	if not pending_player_name.is_empty(): return
+	var value := name_field.text.strip_edges()
+	if not valid_player_name(value):
+		name_message = "3–16 harf, rakam, _ veya - kullan."
+		queue_redraw()
+		return
+	if not competition_client.phase.is_empty():
+		name_message = "Bağlantı sürüyor; birazdan yeniden dene."
+		queue_redraw()
+		return
+	pending_player_name = value
+	name_field.editable = false
+	name_message = "Oyuncu adı kaydediliyor…"
+	competition_client.send({"action":"profile","nickname":value})
+	queue_redraw()
+
+func draw_name_dialog() -> void:
+	draw_rect(Rect2(0,0,480,800),Color("09281b"))
+	text("OYUNCU ADIN",170,31,Color("e3f4d4"))
+	text("Bu ad haftalık ligde herkese görünür.",225,16,Color("bce2c2"))
+	text(name_message,369,14,Color("ffd166"))
+	box(NAME_SAVE,Color("14864c"))
+	text("Kaydet" if pending_player_name.is_empty() else "Kaydediliyor…",426,23)
+	box(NAME_CANCEL,Color("163d2d"))
+	text("Geri dön",494,20)
+	text("Adını kaydetmek için internet gerekir.",562,14,Color("a8c9ae"))
