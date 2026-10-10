@@ -83,6 +83,15 @@ var reward_anchor := -1
 var reward_kind := 0
 var special_waves: Array[Dictionary] = []
 var campaign_mode := false
+const HOME_JOURNEY := Rect2(100, 202, 280, 44)
+const HOME_DAILY := Rect2(32, 272, 416, 94)
+const HOME_COLLECTION := Rect2(32, 380, 416, 94)
+const HOME_LEAGUE := Rect2(32, 488, 416, 94)
+const HOME_PLAY := Rect2(32, 606, 416, 88)
+const HOME_SETTINGS := Rect2(405, 741, 44, 44)
+var home_open := false
+var settings_open := false
+var navigation_origin := "game"
 var map_open := false
 var stage := 0
 var moves_left := 0
@@ -170,7 +179,7 @@ func _ready() -> void:
 	load_progress()
 	save_best()
 	restart()
-	map_open = true
+	home_open = true
 
 func load_progress() -> void:
 	var config := ConfigFile.new()
@@ -309,6 +318,8 @@ func restart() -> void:
 		fall_tween.kill()
 	busy = false
 	map_open = false
+	home_open = false
+	settings_open = false
 	stage_won = false
 	stage_rating = 0
 	mission_count = 0
@@ -369,7 +380,7 @@ func _process(delta: float) -> void:
 	if ended: celebration += delta
 	feed_sound()
 	impact = maxf(0.0, impact - delta * 3.0)
-	if focused and started and not ended and not profile_open and not collection_open and not league_open and not map_open:
+	if focused and started and not ended and not profile_open and not collection_open and not league_open and not map_open and not home_open and not settings_open:
 		combo_left = maxf(0.0, combo_left - delta)
 		if combo_left <= 0.0:
 			combo = 0
@@ -424,7 +435,7 @@ func can_join_chain(index: int) -> bool:
 	return specials[index] == RAINBOW or color == -1 or board[index] == color
 
 func select_cell(index: int) -> void:
-	if index < 0 or busy or ended or profile_open or collection_open or league_open or map_open:
+	if index < 0 or busy or ended or profile_open or collection_open or league_open or map_open or home_open or settings_open:
 		return
 	if chain.is_empty():
 		chain.append(index)
@@ -453,10 +464,7 @@ func _input(event: InputEvent) -> void:
 	elif event is InputEventMouseMotion and pointer == -1 and dragging:
 		select_cell(cell_at(event.position))
 	elif event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
-		if campaign_mode:
-			map_open = true
-		profile_open = false
-		cancel_selection()
+		open_home()
 
 func cancel_selection() -> void:
 	if not busy:
@@ -473,21 +481,51 @@ func _notification(what: int) -> void:
 		focused = true
 
 func press(pos: Vector2, id: int) -> void:
+	if settings_open:
+		if PROFILE_BACK.has_point(pos): open_home()
+		elif Rect2(37,210,406,64).has_point(pos): sound_on = not sound_on
+		elif Rect2(37,290,406,64).has_point(pos): effects = not effects
+		save_best()
+		return
+	if home_open:
+		if HOME_JOURNEY.has_point(pos):
+			home_open = false
+			map_open = true
+		elif HOME_DAILY.has_point(pos): start_daily()
+		elif HOME_COLLECTION.has_point(pos):
+			home_open = false
+			collection_open = true
+			navigation_origin = "home"
+		elif HOME_LEAGUE.has_point(pos):
+			home_open = false
+			league_open = true
+			navigation_origin = "home"
+			league_message = "Sıralama yükleniyor…"
+			competition_client.send({"action":"leaderboard"})
+		elif HOME_PLAY.has_point(pos): start_free_play()
+		elif HOME_SETTINGS.has_point(pos):
+			home_open = false
+			settings_open = true
+		return
 	if league_open:
-		if PROFILE_BACK.has_point(pos): league_open = false
+		if PROFILE_BACK.has_point(pos):
+			league_open = false
+			if navigation_origin == "home": open_home()
 		elif Rect2(37, 620, 406, 48).has_point(pos):
 			league_message = "Lig yükleniyor…"
 			competition_client.send({"action":"leaderboard"})
 		return
 	if daily_mode and ended and Rect2(80, 570, 320, 55).has_point(pos):
 		league_open = true
+		navigation_origin = "game"
 		league_message = "Puan gönderiliyor…"
 		competition_client.send({"action":"submit", "day":daily_day, "moves":daily_replay})
 		return
 	if collection_open:
 		if PROFILE_BACK.has_point(pos):
 			collection_open = false
-			map_open = true
+			if navigation_origin == "home": open_home()
+			else: map_open = true
 		elif Rect2(37, 630, 406, 44).has_point(pos):
 			sound_on = not sound_on
 			save_best()
@@ -496,23 +534,10 @@ func press(pos: Vector2, id: int) -> void:
 				if Rect2(37, 180 + i * 95, 406, 80).has_point(pos): buy_cosmetic(i)
 		return
 	if map_open:
-		if LEAGUE_BUTTON.has_point(pos):
-			map_open = false
-			league_open = true
-			league_message = "Lig yükleniyor…"
-			competition_client.send({"action":"leaderboard"})
-			return
 		for i in 3:
 			if WORLD_TABS[i].has_point(pos): world_page = i
-		if DAILY_BUTTON.has_point(pos):
-			start_daily()
-			return
-		if COLLECTION_BUTTON.has_point(pos):
-			collection_open = true
-			map_open = false
-			return
 		if PROFILE_BACK.has_point(pos):
-			leave_campaign()
+			open_home()
 			return
 		for i in 10:
 			if map_node(i).distance_to(pos) <= 27 and stage_unlocked(world_page * 10 + i):
@@ -522,8 +547,7 @@ func press(pos: Vector2, id: int) -> void:
 		if not busy:
 			if not campaign_mode:
 				prior_timed = timed_mode
-			cancel_selection()
-			map_open = true
+			open_home()
 		return
 	if profile_open:
 		if PROFILE_BACK.has_point(pos):
@@ -574,7 +598,7 @@ func press(pos: Vector2, id: int) -> void:
 func release_pointer() -> void:
 	dragging = false
 	pointer = -2
-	if busy or ended or profile_open or collection_open or league_open or map_open:
+	if busy or ended or profile_open or collection_open or league_open or map_open or home_open or settings_open:
 		return
 	if chain.size() < 3:
 		chain.clear()
@@ -970,14 +994,9 @@ func draw_map() -> void:
 		label_at(data["name"], pos + Vector2(95 if i % 2 == 0 else -100, 5), 12, Color("b8ccbb"))
 		draw_rating(pos + Vector2(0, 33), level_stars[index], 5)
 	text("Finali geç, sıradaki dünyayı aç!", 634, 17, Color("b8f0cc"))
-	box(DAILY_BUTTON, Color("526bd8"), 10)
-	box(COLLECTION_BUTTON, Color("355b44"), 10)
-	box(LEAGUE_BUTTON, Color("25385a"), 10)
-	label_at("Haftalık lig", LEAGUE_BUTTON.get_center() + Vector2(0, 6), 17, Color.WHITE)
-	label_at("Günlük yarış", DAILY_BUTTON.get_center() + Vector2(0, 6), 17, Color.WHITE)
-	label_at("Koleksiyon", COLLECTION_BUTTON.get_center() + Vector2(0, 6), 17, Color.WHITE)
+	text("Dünya finalini geçerek yenisini aç.", 672, 15, Color("9eb8a6"))
 	box(PROFILE_BACK, Color("355b44"))
-	text("Serbest oyuna geç", 746, 21)
+	text("Ana menüye dön", 746, 21)
 	text("Can ve bekleme yok • İstediğin kadar dene", 785, 14, Color("9eb8a6"))
 
 func draw_rating(center: Vector2, rating: int, radius: float) -> void:
@@ -1076,6 +1095,12 @@ func draw_special_effect(wave: Dictionary) -> void:
 			draw_arc(targets[n], 8 + age * 22, 0, TAU, 24, color, 2, true)
 
 func _draw() -> void:
+	if home_open:
+		draw_home()
+		return
+	if settings_open:
+		draw_settings()
+		return
 	if league_open:
 		draw_league()
 		return
@@ -1107,7 +1132,7 @@ func _draw() -> void:
 		box(Rect2(37, 92, 195, 36), Color(1, 0.2, 0.4, 0.2 + (sin(elapsed * 5) * 0.1 if effects else 0.0)), 12)
 	text("SKOR  %d" % score, 181, 30, Color.WHITE.lerp(accent, impact))
 	box(MAP_BUTTON, Color("285b51"), 8)
-	label_at("HARİTA", Vector2(72, 183), 12, Color("b8f0cc"))
+	label_at("MENÜ", Vector2(72, 183), 12, Color("b8f0cc"))
 	text(message, 211, 14, Color("9caac7"))
 	text("5+: BOMBA  •  7+: ŞİMŞEK  •  9+: GÖKKUŞAĞI", 151, 10, Color("9caac7"))
 	var shake := Vector2(sin(elapsed * 55), cos(elapsed * 49)) * impact * 2 if effects else Vector2.ZERO
@@ -1369,7 +1394,7 @@ func draw_league() -> void:
 			var y := 218 + i * 40
 			box(Rect2(37,y,406,34),Color("25385a") if row.get("self",false) else Color("172139"),7)
 			label_at("%d. %s" % [row["rank"],row["name"]],Vector2(170,y+23),16,Color.WHITE)
-			label_at(str(row["score"]),Vector2(380,y+23),16,Color("ffd166"))
+			label_at(str(int(row["score"])),Vector2(380,y+23),16,Color("ffd166"))
 	box(Rect2(37,620,406,48),Color("526bd8"))
 	text("Sıralamayı yenile",650,20)
 	box(PROFILE_BACK,Color("355b44"))
@@ -1446,3 +1471,112 @@ func draw_living_bubble(index: int, pos: Vector2, radius: float, selected: bool)
 				draw_circle(core, radius * 0.24, Color(light, 0.14))
 				draw_circle(core, radius * 0.17, light)
 				draw_circle(core - Vector2(1, 1), radius * 0.055, Color.WHITE)
+
+func open_home() -> void:
+	cancel_selection()
+	home_open = true
+	map_open = false
+	profile_open = false
+	collection_open = false
+	league_open = false
+	settings_open = false
+	queue_redraw()
+
+func start_free_play() -> void:
+	campaign_mode = false
+	daily_mode = false
+	timed_mode = false
+	prior_timed = false
+	restart()
+
+func menu_icon(kind: String, pos: Vector2, color: Color) -> void:
+	match kind:
+		"play":
+			draw_colored_polygon(PackedVector2Array([pos+Vector2(-10,-16),pos+Vector2(17,0),pos+Vector2(-10,16)]),color)
+		"trophy":
+			var cup := PackedVector2Array([pos+Vector2(-15,-19),pos+Vector2(15,-19),pos+Vector2(12,1),pos+Vector2(5,8),pos+Vector2(-5,8),pos+Vector2(-12,1)])
+			draw_colored_polygon(cup,color)
+			draw_arc(pos+Vector2(-14,-11),10,PI*0.5,PI*1.5,16,color,3,true)
+			draw_arc(pos+Vector2(14,-11),10,-PI*0.5,PI*0.5,16,color,3,true)
+			draw_line(pos+Vector2(0,7),pos+Vector2(0,19),color,5,true)
+			box(Rect2(pos+Vector2(-13,18),Vector2(26,5)),color,2)
+		"layers":
+			for i in 3:
+				var y := -12 + i * 10
+				var line := PackedVector2Array([pos+Vector2(-20,y),pos+Vector2(0,y+10),pos+Vector2(20,y),pos+Vector2(0,y-10),pos+Vector2(-20,y)])
+				draw_polyline(line,color,3,true)
+		"medal":
+			draw_line(pos+Vector2(-13,-22),pos+Vector2(-4,-6),color,6,true)
+			draw_line(pos+Vector2(13,-22),pos+Vector2(4,-6),color,6,true)
+			draw_arc(pos+Vector2(0,8),14,0,TAU,32,color,3,true)
+			draw_circle(pos+Vector2(0,8),5,color)
+		"path":
+			draw_line(pos+Vector2(0,-11),pos+Vector2(0,2),color,2,true)
+			draw_line(pos+Vector2(0,2),pos+Vector2(-13,10),color,2,true)
+			draw_line(pos+Vector2(0,2),pos+Vector2(13,10),color,2,true)
+			for offset in [Vector2(0,-12),Vector2(-14,11),Vector2(14,11)]: draw_arc(pos+offset,4,0,TAU,16,color,2,true)
+		"gear":
+			draw_arc(pos,9,0,TAU,24,color,3,true)
+			for i in 8:
+				var direction := Vector2.from_angle(i*TAU/8)
+				draw_line(pos+direction*10,pos+direction*15,color,4,true)
+
+func home_card(rect: Rect2, title: String, subtitle: String, kind: String, gold: bool = false) -> void:
+	box(Rect2(rect.position+Vector2(0,4),rect.size),Color(0.01,0.06,0.04,0.55),20)
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color("263f2b") if gold else Color("163d2d")
+	style.border_color = Color("d5b567") if gold else Color("37654d")
+	style.set_border_width_all(2 if gold else 1)
+	style.set_corner_radius_all(20)
+	draw_style_box(style,rect)
+	var accent := Color("f2cf7f") if gold else Color("bce2c2")
+	menu_icon(kind,rect.position+Vector2(49,46),accent)
+	var x := rect.position.x+96
+	draw_string(font,Vector2(x,rect.position.y+41),title,HORIZONTAL_ALIGNMENT_LEFT,-1,23,Color("eef6d7"))
+	draw_string(font,Vector2(x,rect.position.y+68),subtitle,HORIZONTAL_ALIGNMENT_LEFT,-1,14,Color("a8c9ae"))
+	var arrow := rect.position+Vector2(rect.size.x-25,46)
+	draw_polyline(PackedVector2Array([arrow+Vector2(-4,-7),arrow+Vector2(3,0),arrow+Vector2(-4,7)]),accent,2.5,true)
+
+func draw_home() -> void:
+	draw_rect(Rect2(0,0,480,800),Color("09281b"))
+	for i in 8:
+		var pos := Vector2(-20 if i%2==0 else 493,25+i*106)
+		draw_circle(pos,48,Color(0.2,0.4,0.25,0.14))
+		draw_arc(pos,48,0,TAU,32,Color(0.4,0.6,0.35,0.12),1,true)
+	text("COLOR CHAIN",89,39,Color("e3f4d4"))
+	if board.size() >= 4:
+		for i in 4:
+			var old_color: int = board[i]
+			var old_special: int = specials[i]
+			board[i] = i
+			specials[i] = 0
+			draw_living_bubble(i,Vector2(126+i*76,155),27,false)
+			board[i] = old_color
+			specials[i] = old_special
+	menu_icon("path",Vector2(111,225),Color("bce2c2"))
+	label_at("Bölüm Yolculuğu",Vector2(255,232),20,Color("cee7cb"))
+	draw_polyline(PackedVector2Array([Vector2(365,218),Vector2(372,225),Vector2(365,232)]),Color("bce2c2"),2.5,true)
+	home_card(HOME_DAILY,"Günlük Etkinlik","Bugünün meydan okuması","trophy",true)
+	home_card(HOME_COLLECTION,"Koleksiyon","Baloncuk görünümlerini keşfet","layers")
+	home_card(HOME_LEAGUE,"Haftalık Sıralama","Bu haftanın en iyileri","medal")
+	box(Rect2(HOME_PLAY.position+Vector2(0,4),HOME_PLAY.size),Color("062015"),20)
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color("14864c")
+	style.border_color = Color("50cb85")
+	style.set_border_width_all(2)
+	style.set_corner_radius_all(20)
+	draw_style_box(style,HOME_PLAY)
+	menu_icon("play",Vector2(91,648),Color("e3f4d4"))
+	label_at("Serbest Oyna",Vector2(271,647),27,Color("eef6d7"))
+	label_at("Sınırsız hamle, rahat oyun",Vector2(271,675),15,Color("c4e6c3"))
+	menu_icon("gear",HOME_SETTINGS.get_center(),Color("a6d3b0"))
+
+func draw_settings() -> void:
+	draw_rect(Rect2(0,0,480,800),Color("09281b"))
+	text("AYARLAR",80,30,Color("e3f4d4"))
+	box(Rect2(37,210,406,64),Color("163d2d"))
+	text("Ses: Açık" if sound_on else "Ses: Kapalı",250,23)
+	box(Rect2(37,290,406,64),Color("163d2d"))
+	text("Animasyonlar: Açık" if effects else "Animasyonlar: Sade",330,23)
+	box(PROFILE_BACK,Color("14864c"))
+	text("Ana menüye dön",746,22)
