@@ -28,7 +28,7 @@ const LEVELS := [
 	{"name": "Gökkuşağı Köprüsü", "moves": 22, "goal": 800, "ice": 16, "colors": 4, "hint": "9 taşlık zincir gökkuşağı kazandırır."},
 	{"name": "Bahçenin Kalbi", "moves": 24, "goal": 1000, "ice": 18, "colors": 4, "hint": "Final: tüm buzları kır ve 1000 puana ulaş!"}
 ]
-const WORLD_NAMES := ["Renk Bahçesi", "Buz Vadisi", "Neon Şehir"]
+const WORLD_NAMES := ["Palmiye Adası", "Buz Vadisi", "Yeraltı Adası"]
 const WORLD_TABS := [Rect2(25, 95, 140, 94), Rect2(170, 95, 140, 94), Rect2(315, 95, 140, 94)]
 const DAILY_BUTTON := Rect2(25, 652, 140, 40)
 const COLLECTION_BUTTON := Rect2(170, 652, 140, 40)
@@ -106,6 +106,10 @@ var league_open := false
 var league_data: Dictionary = {}
 var league_message := "Günlük yarış puanların haftalık lige sayılır."
 var world_page := 0
+var island_overview := true
+var island_texture: ImageTexture
+const ISLAND_ZONES := [Rect2(10, 454, 330, 231), Rect2(160, 254, 310, 198), Rect2(10, 65, 330, 189)]
+const ISLAND_LABELS := [Vector2(178, 635), Vector2(330, 426), Vector2(157, 225)]
 var daily_random := 1
 var daily_replay: Array = []
 var daily_mode := false
@@ -490,6 +494,7 @@ func press(pos: Vector2, id: int) -> void:
 	if home_open:
 		if HOME_JOURNEY.has_point(pos):
 			home_open = false
+			island_overview = true
 			map_open = true
 		elif HOME_DAILY.has_point(pos): start_daily()
 		elif HOME_COLLECTION.has_point(pos):
@@ -534,10 +539,18 @@ func press(pos: Vector2, id: int) -> void:
 				if Rect2(37, 180 + i * 95, 406, 80).has_point(pos): buy_cosmetic(i)
 		return
 	if map_open:
+		if island_overview:
+			if PROFILE_BACK.has_point(pos): open_home()
+			else:
+				for i in 3:
+					if ISLAND_ZONES[i].has_point(pos):
+						world_page = i
+						island_overview = false
+			return
 		for i in 3:
 			if WORLD_TABS[i].has_point(pos): world_page = i
 		if PROFILE_BACK.has_point(pos):
-			open_home()
+			island_overview = true
 			return
 		for i in 10:
 			if map_node(i).distance_to(pos) <= 27 and stage_unlocked(world_page * 10 + i):
@@ -970,6 +983,52 @@ func draw_garden_background() -> void:
 		for j in 5:
 			draw_circle(Vector2(x, y) + Vector2.from_angle(j * TAU / 5) * 8, 4, Color(1, 0.65, 0.75, 0.25))
 
+func load_island_art() -> void:
+	if island_texture != null: return
+	var image := Image.new()
+	var bytes := Marshalls.base64_to_raw(FileAccess.get_file_as_string("res://assets/island-map.txt"))
+	if image.load_jpg_from_buffer(bytes) == OK:
+		island_texture = ImageTexture.create_from_image(image)
+
+func draw_island_overview() -> void:
+	load_island_art()
+	if island_texture != null:
+		draw_texture_rect(island_texture, Rect2(0,0,480,800), false)
+	else: draw_rect(Rect2(0,0,480,800), Color("23b5d0"))
+	# The illustration stays decorative; all labels, locks and progress are live.
+	box(Rect2(70,12,340,48), Color("85522c"), 18)
+	label_at("ADA YOLCULUĞU", Vector2(240,44), 27, Color("fff2d2"))
+	box(Rect2(121,63,238,26), Color(0.04,0.25,0.35,0.82), 12)
+	label_at("Yeni dünyaları keşfet", Vector2(240,81), 14, Color.WHITE)
+	var centers := [Vector2(177,552), Vector2(343,337), Vector2(166,159)]
+	for world in 3:
+		var completed := 0
+		var stars := 0
+		for level in range(world*10,world*10+10):
+			if level_stars[level] > 0: completed += 1
+			stars += level_stars[level]
+		var unlocked := stage_unlocked(world*10)
+		var accent: Color = [Color("ff658b"),Color("47c8f4"),Color("af70e3")][world]
+		var label: Vector2 = ISLAND_LABELS[world]
+		if world > 0:
+			var previous: Vector2 = centers[world-1]
+			for dot in range(1,9):
+				var point := previous.lerp(centers[world], float(dot)/9)
+				point.x += sin(float(dot)/9*PI)*42
+				draw_circle(point, 2.5, Color(1,1,0.85,0.55 + (sin(elapsed*2-dot)*0.2 if effects else 0)))
+		box(Rect2(label-Vector2(109,20),Vector2(218,35)),Color("233b59"),12)
+		box(Rect2(label-Vector2(106,23),Vector2(212,33)),accent,12)
+		label_at(WORLD_NAMES[world].to_upper(),label+Vector2(0,1),18,Color.WHITE)
+		var bar := Rect2(label+Vector2(-96,17),Vector2(192,23))
+		box(bar,Color("233b59"),11)
+		if completed > 0:
+			box(Rect2(bar.position+Vector2(3,3),Vector2(186.0*completed/10,17)), Color("a9ec48") if world==0 else accent,8)
+		label_at("%d / 10 bölüm" % completed,bar.get_center()+Vector2(0,5),14,Color.WHITE)
+		box(Rect2(label+Vector2(-71,43),Vector2(142,21)),Color(0.04,0.19,0.3,0.84),9)
+		label_at("%d / 30 yıldız" % stars if unlocked else "KİLİTLİ • Önceki final",label+Vector2(0,58),11,Color("fff0b6"))
+	box(PROFILE_BACK,Color("168dda"),22)
+	text("Ana menü",746,23,Color.WHITE)
+
 func draw_world_card(world: int) -> void:
 	var rect: Rect2 = WORLD_TABS[world]
 	var origin := rect.position
@@ -1022,6 +1081,9 @@ func draw_world_card(world: int) -> void:
 	if selected: draw_circle(origin+Vector2(126,80),3,accent)
 
 func draw_map() -> void:
+	if island_overview:
+		draw_island_overview()
+		return
 	draw_world_background(world_page)
 	text(WORLD_NAMES[world_page].to_upper(), 43, 29, Color("b8f0cc"))
 	var total := 0
@@ -1046,7 +1108,7 @@ func draw_map() -> void:
 	text("Finali geç, sıradaki dünyayı aç!", 662, 17, Color("b8f0cc"))
 	text("Dünya finalini geçerek yenisini aç.", 690, 15, Color("9eb8a6"))
 	box(PROFILE_BACK, Color("355b44"))
-	text("Ana menüye dön", 746, 21)
+	text("Adalara dön", 746, 21)
 	text("Can ve bekleme yok • İstediğin kadar dene", 785, 14, Color("9eb8a6"))
 
 func draw_rating(center: Vector2, rating: int, radius: float) -> void:
