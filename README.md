@@ -159,3 +159,10 @@ Adaların bölüm ekranları da artık onaylı tematik 2.5D manzaraları kullan�
 ### Mobil performans
 
 Boncuklar boşta hareket etmez. Her renk ve özel taş kabuğu 64×64 piksel görsele bir defa çizilir, sonra aynı görseller paylaşılır; tema değişince önbellek yenilenir. Boştaki tahta ve ana menü sürekli yeniden çizilmez. Seçim, patlama ve düşme korunur; geçici parçacıklar en fazla 48, özel efekt dalgaları en fazla 6 ile sınırlıdır. Harita animasyonları 15, etkileşim efektleri 30 çizim/saniye ile güncellenir; düşme tween'i kendi çizim güncellemelerini korur. Gerçek Android cihazında FPS ölçümü yapılmadı.
+
+
+### Android APK
+
+[Telefon için APK indir](https://halilacikgozz.github.io/color-chain-game/downloads/color-chain.apk). Dosyayı Android'de açıp tarayıcıya bu uygulama için kurulum izni vererek yükleyin. Bu, mağaza dağıtımı için hazırlanmış bir Play sürümü değil, doğrudan kurulan kişisel test APK'sıdır. ARMv7 ve ARM64 desteklenir; oyun dikey ekranda çalışır. Yalnızca çevrim içi lig için internet izni istenir. Tarayıcı kaydı ve APK kaydı ayrıdır; çevrim dışı bölümler oynanabilir, lig internet ister.
+
+Actions, Java 17 ve Android SDK 34 ile APK'yı export eder; imza, paket adı ve ARM kitaplıklarını doğrular. Test imza anahtarı repo dışında Actions önbelleğinde tutulur. Önbellek silinirse aynı anahtarın korunması için yedeği gerekir; farklı anahtarla oluşturulan APK mevcut kurulumun üzerine güncellenemez. İndirilen APK `color-chain-android` Actions çıktısında da bulunur. Gerçek Android cihazında kurulum/oynama testi kullanıcı tarafından yapılır.
