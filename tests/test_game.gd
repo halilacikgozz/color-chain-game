@@ -478,6 +478,20 @@ func run_tests() -> void:
 	game.account_panel.waiting = false
 	game.account_panel.close()
 	check(not game.account_open, "Closing account panel resumes navigation")
+	check(game.account_panel.valid_email("oyuncu@example.com") and not game.account_panel.valid_email("eksik@"), "Email form rejects malformed addresses")
+	var auth = load("res://scripts/competition.gd").new()
+	auth.session_path = "user://color_chain_auth_test.json"
+	root.add_child(auth)
+	auth.session = {"access_token":"previous-test-session"}
+	auth.phase = "email_verify"
+	auth.pending = {"type":"email"}
+	auth.completed(HTTPRequest.RESULT_SUCCESS,400,PackedStringArray(),JSON.stringify({"msg":"Invalid OTP"}).to_utf8_buffer())
+	check(auth.session["access_token"] == "previous-test-session", "Invalid OTP does not replace existing player session")
+	auth.phase = "email_verify"
+	auth.completed(HTTPRequest.RESULT_SUCCESS,200,PackedStringArray(),JSON.stringify({"access_token":"verified-test-session","refresh_token":"test-refresh","expires_in":3600,"user":{"is_anonymous":false}}).to_utf8_buffer())
+	check(auth.session["access_token"] == "verified-test-session" and auth.session.has("expires_at"), "Successful OTP saves a refreshable session")
+	DirAccess.remove_absolute(auth.session_path)
+	auth.queue_free()
 	DirAccess.remove_absolute(game.save_path)
 	game.queue_free()
 	print("Color Chain tests: %d failures" % failures)
