@@ -1343,6 +1343,9 @@ func draw_special_effect(wave: Dictionary) -> void:
 			draw_arc(targets[n], 8 + age * 22, 0, TAU, 24, color, 2, true)
 
 func _draw() -> void:
+	if account_open:
+		draw_rect(Rect2(0,0,480,800),Color("09281b"))
+		return
 	if name_open:
 		draw_name_dialog()
 		return
