@@ -166,3 +166,23 @@ Boncuklar boşta hareket etmez. Her renk ve özel taş kabuğu 64×64 piksel gö
 [Telefon için APK indir](https://halilacikgozz.github.io/color-chain-game/downloads/color-chain.apk). Dosyayı Android'de açıp tarayıcıya bu uygulama için kurulum izni vererek yükleyin. Bu, mağaza dağıtımı için hazırlanmış bir Play sürümü değil, doğrudan kurulan kişisel test APK'sıdır. ARMv7 ve ARM64 desteklenir; oyun dikey ekranda çalışır. Yalnızca çevrim içi lig için internet izni istenir. Tarayıcı kaydı ve APK kaydı ayrıdır; çevrim dışı bölümler oynanabilir, lig internet ister.
 
 Actions, Java 17 ve Android SDK 34 ile APK'yı export eder; imza, paket adı ve ARM kitaplıklarını doğrular. Test imza anahtarı repo dışında Actions önbelleğinde tutulur. Önbellek silinirse aynı anahtarın korunması için yedeği gerekir; farklı anahtarla oluşturulan APK mevcut kurulumun üzerine güncellenemez. İndirilen APK `color-chain-android` Actions çıktısında da bulunur. Gerçek Android cihazında kurulum/oynama testi kullanıcı tarafından yapılır.
+
+
+## Ödüller ve birleşik görünüm
+
+Yıldızlar sadece bölüm başarısıdır. Deneyim oyuncu seviyesini yükseltir; görevler 30 deneyim ve 15 kristal verir. Kristaller baloncuk görünümlerinde kullanılır. Eski sürümde açılan temalar korunur. Tema seçimleri ve baloncuk koleksiyonu ana menüdeki **Görünüm** ekranının iki sekmesidir.
+
+## Hesabı başka telefona taşıma
+
+1. Ayarlar → **Hesap ve bulut kaydı** → **Hesabımı bağla • kod oluştur**.
+2. Kurtarma kodunu güvenli bir yere kopyala. Kod hesabın anahtarıdır; paylaşma. İlk bulut kaydı otomatik oluşturulur.
+3. Yeni telefonda aynı ekrana kodu girip **Kodla hesabıma gir** seç.
+4. **Bulut kaydını kontrol et**, ardından **Buluttaki ilerlemeyi yükle** ve onayla.
+
+Bölümler, bölüm yıldızları, rekorlar, deneyim, görevler, kristaller ve görünümler taşınır. Devam eden tur taşınmaz; cihazdaki önceki ilerleme yerel yedek dosyasında korunur. Sıralama aynı oyuncu kimliğinde kalır. Son değişiklikler 3 saniyelik beklemeden sonra otomatik kaydedilir; çıkmadan önce bulut kaydının başarılı olduğunu kontrol et.
+
+İki cihaz aynı anda oynarsa eski kayıt yeni kaydı ezmez. Çakışmada bulutu yeniden kontrol edip hangi ilerlemeyi kullanacağını seç. Kod yenilenirse önceki kod geçersiz olur. Kodu kaybedip bütün cihazlardan çıkış yaparsan hesabı geri getirecek başka yöntem yoktur; e-posta/Google kurtarma henüz sunulmuyor.
+
+Kurtarma kodu 256 bit rastgele sır içerir. Sunucu bu sırla Supabase Auth üzerinde yalnızca mevcut oyuncunun hesabını bağlar; gerçek e-posta adresi ve e-posta gönderimi kullanılmaz. Ham kod veritabanında saklanmaz. Bulut ilerlemesi doğrulanmış yarış skorundan ayrıdır; yerel ilerleme yüklemek lig puanı oluşturmaz. Yeni sunucu kurulumu için `003_cloud_progress.sql` ve `account.ts`/`progress.ts` dosyalarını da dağıt.
+
+Doğrulama: Godot ilerleme/geçiş testleri, Node kayıt ve kod biçimi testleri, `tests/test_cloud.sql` ile kayıt çakışması ve özel erişim kontrolü (değişiklikler geri alınır). Gerçek cihazlar arasında yeni hesap bağlantısı kullanıcının kendi koduyla ayrıca denenmelidir.
