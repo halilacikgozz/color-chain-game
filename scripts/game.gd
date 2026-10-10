@@ -1252,8 +1252,8 @@ func draw_stage_result() -> void:
 	text("BÖLÜM TAMAMLANDI!" if stage_won else ("HAMLE KALMADI" if no_moves_end else "HAMLE HAKKI BİTTİ"), 340, 27, Color("b8f0cc"))
 	draw_rating(Vector2(240, 388), mini(stage_rating, int(celebration / 0.25) + 1) if stage_won and effects else stage_rating, 20)
 	text("%d PUAN • %d HAMLE KALDI" % [score, moves_left], 448, 19)
-	text("İlk başarı: +50 deneyim +25 kristal" if stage_won else "Hedef: %d puan ve tüm buzlar" % stage_data()["goal"], 493, 18, Color("9eb8a6"))
-	text("Çiçek Bahçesi teması açıldı!" if stage_won and stage == 9 else ("Bölüm yıldızların kaydedildi." if stage_won else "%d buz kaldı; özel taşları kullan." % ice_left()), 540, 19, Color("ffd166"))
+	text("İlk başarı: +50 deneyim +25 kristal" if stage_won else "Hedef: %d puan • %d buz kaldı" % [stage_data()["goal"],ice_left()], 493, 18, Color("9eb8a6"))
+	text("Çiçek Bahçesi teması açıldı!" if stage_won and stage == 9 else ("Bölüm yıldızların kaydedildi." if stage_won else (mission_label() if stage >= 10 else "Özel taşlarla daha geniş alanları temizle.")), 540, 19, Color("ffd166"))
 	text("3 yıldız: hamlelerin en az yarısı kalsın.", 588, 15, Color("9eb8a6"))
 
 func special_name(kind: int) -> String:
