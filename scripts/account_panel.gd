@@ -28,11 +28,11 @@ var stored_owner := ""
 var initial_save := false
 
 func _ready() -> void:
-	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	size = Vector2(480,800)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	var background := ColorRect.new()
 	background.color = Color("09281b")
-	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	background.size = Vector2(480,800)
 	add_child(background)
 	add_label("HESAP VE BULUT KAYDI",Vector2(25,25),Vector2(430,48),27)
 	add_label("İlerlemeni e-postana bağla.\nYeni telefonda aynı e-postayla giriş yap.",Vector2(30,79),Vector2(420,54),17)
