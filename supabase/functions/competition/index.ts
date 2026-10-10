@@ -1,7 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { replay } from './replay.ts';
 import { validateProgress } from './progress.ts';
-import { parseRecoveryCode,createRecoveryCode } from './account.ts';
 const headers={'Access-Control-Allow-Origin':'https://halilacikgozz.github.io','Access-Control-Allow-Headers':'authorization, apikey, content-type','Access-Control-Allow-Methods':'POST, OPTIONS'};
 Deno.serve(async req=>{
  if(req.method==='OPTIONS')return new Response('ok',{headers});
@@ -18,24 +17,7 @@ Deno.serve(async req=>{
   const date=new Date(day);date.setUTCDate(date.getUTCDate()-((date.getUTCDay()+6)%7));const week=date.toISOString().slice(0,10);
   const nickname='Oyuncu '+user.id.slice(0,6);
   const saved=await admin.from('cc_players').upsert({id:user.id,nickname},{onConflict:'id',ignoreDuplicates:true});if(saved.error)throw saved.error;
-  if(!['submit','leaderboard','profile','cloud_get','cloud_save','account_create','account_restore'].includes(input.action))return response({error:'Geçersiz işlem'},400);
-  if(input.action==='account_create'){
-   if(!user.is_anonymous && user.email!==`${user.id}@accounts.colorchain.invalid`)return response({error:'Bu hesap başka bir giriş yöntemiyle bağlı.'},400);
-   const code=createRecoveryCode(user.id), credentials=parseRecoveryCode(code);
-   // Synthetic address is an internal identifier; no mail or real email identity is involved.
-   const email=`${user.id}@accounts.colorchain.invalid`;
-   const result=await admin.auth.admin.updateUserById(user.id,{email,password:credentials.password,email_confirm:true});if(result.error)throw result.error;
-   const auth=createClient(url,key,{auth:{persistSession:false}});
-   const login=await auth.auth.signInWithPassword({email,password:credentials.password});if(login.error||!login.data.session)throw Error('Hesap bağlantısı tamamlanamadı');
-   return response({action:'account',session:login.data.session,recovery_code:code,created:true});
-  }
-  if(input.action==='account_restore'){
-   const credentials=parseRecoveryCode(input.code);
-   const auth=createClient(url,key,{auth:{persistSession:false}});
-   const login=await auth.auth.signInWithPassword({email:`${credentials.id}@accounts.colorchain.invalid`,password:credentials.password});
-   if(login.error||!login.data.session)return response({error:'Kurtarma kodu geçersiz veya hesap bulunamadı.'},401);
-   return response({action:'account',session:login.data.session,created:false});
-  }
+  if(!['submit','leaderboard','profile','cloud_get','cloud_save'].includes(input.action))return response({error:'Geçersiz işlem'},400);
   if(input.action==='cloud_get'){
    const {data,error}=await admin.from('cc_progress').select('payload,revision,updated_at').eq('player_id',user.id).maybeSingle();if(error)throw error;
    const {data:player}=await admin.from('cc_players').select('nickname').eq('id',user.id).single();
