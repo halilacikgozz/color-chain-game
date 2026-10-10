@@ -127,6 +127,9 @@ var crystals := 0
 var owned_cosmetics: Array[int] = [0]
 var cosmetic := 0
 var collection_open := false
+var appearance_tab := 0
+var account_open := false
+var account_panel: Control
 var celebration := 0.0
 var arrival := 0.0
 var new_unlock := -1
@@ -200,6 +203,9 @@ func _ready() -> void:
 	level_bests.fill(0)
 	load_progress()
 	setup_name_field()
+	account_panel = load("res://scripts/account_panel.gd").new()
+	account_panel.game = self
+	add_child(account_panel)
 	save_best()
 	restart()
 	home_open = true
@@ -222,7 +228,7 @@ func load_progress() -> void:
 		level_stars[i] = clampi(int(config.get_value("garden", "stars_%d" % i, 0)), 0, 3)
 		level_bests[i] = maxi(0, int(config.get_value("garden", "best_%d" % i, 0)))
 	theme_index = clampi(int(config.get_value("progress", "theme", 0)), 0, PALETTES.size() - 1)
-	if stars < THEME_COSTS[theme_index]:
+	if not theme_unlocked(theme_index):
 		theme_index = 0
 	if theme_index == 3 and not garden_unlocked():
 		theme_index = 0
@@ -263,7 +269,11 @@ func save_best() -> void:
 	config.set_value("settings", "sound", sound_on)
 	config.set_value("settings", "effects", effects)
 	config.set_value("profile", "name", player_name)
+	if account_panel != null and account_panel.auto_enabled:
+		config.set_value("sync","revision",account_panel.stored_revision)
+		config.set_value("sync","owner",account_panel.stored_owner)
 	config.save(save_path)
+	if account_panel != null: account_panel.mark_dirty()
 
 func player_level() -> int:
 	return 1 + xp / 100
@@ -303,20 +313,26 @@ func update_progress(count: int, gained: int) -> void:
 		"points": quest_progress += gained
 		"tiles": quest_progress += count
 	if quest_progress >= quest_target():
-		stars += 1
+		crystals += 15
 		quests_done += 1
 		quest_progress = 0
 		xp += 30
 		round_xp += 30
-		message = "Görev tamam! +1 yıldız • +30 deneyim"
-		if stars == 3 or stars == 6:
-			message = "%s teması açıldı! Hedefler'e dokun." % ("Neon" if stars == 3 else "Pastel")
+		message = "Görev tamam! +15 kristal • +30 deneyim"
+		if quests_done == 3 or quests_done == 6:
+			message = "%s teması açıldı! Görünüm'e dokun." % ("Neon" if quests_done == 3 else "Pastel")
 	elif player_level() > old_level:
 		message = "Seviye %d! Yeni hedefe devam et." % player_level()
 	save_best()
 
+func theme_unlocked(index: int) -> bool:
+	if index < 0 or index >= PALETTES.size(): return false
+	if index == 3: return garden_unlocked()
+	# Preserve themes earned by older saves, without adding a second star currency.
+	return maxi(quests_done,stars) >= THEME_COSTS[index]
+
 func choose_theme(index: int) -> bool:
-	if index < 0 or index >= PALETTES.size() or stars < THEME_COSTS[index] or (index == 3 and not garden_unlocked()):
+	if not theme_unlocked(index):
 		return false
 	theme_index = index
 	palette = PALETTES[index]
@@ -409,7 +425,7 @@ func _process(delta: float) -> void:
 	if ended: celebration += delta
 	feed_sound()
 	impact = maxf(0.0, impact - delta * 3.0)
-	if focused and started and not ended and not name_open and not profile_open and not collection_open and not league_open and not map_open and not home_open and not settings_open:
+	if focused and started and not ended and not name_open and not account_open and not profile_open and not collection_open and not league_open and not map_open and not home_open and not settings_open:
 		combo_left = maxf(0.0, combo_left - delta)
 		if combo_left <= 0.0:
 			combo = 0
@@ -441,7 +457,7 @@ func _process(delta: float) -> void:
 func needs_continuous_redraw() -> bool:
 	if not focused: return false
 	if map_open: return effects
-	if name_open or home_open or settings_open or league_open or profile_open or collection_open: return false
+	if account_open or name_open or home_open or settings_open or league_open or profile_open or collection_open: return false
 	return busy or not particles.is_empty() or not floaters.is_empty() or not special_waves.is_empty() or impact > 0.0 or arrival > 0.0 or (effects and not chain.is_empty()) or (started and timed_mode and not ended) or (ended and ((stage_won and celebration < 6.0) or (no_moves_end and celebration < 0.9)))
 
 func end_round() -> void:
@@ -474,7 +490,7 @@ func can_join_chain(index: int) -> bool:
 	return specials[index] == RAINBOW or color == -1 or board[index] == color
 
 func select_cell(index: int) -> void:
-	if index < 0 or busy or ended or profile_open or collection_open or league_open or map_open or home_open or settings_open or name_open:
+	if index < 0 or busy or ended or profile_open or collection_open or league_open or map_open or home_open or settings_open or name_open or account_open:
 		return
 	if chain.is_empty():
 		chain.append(index)
@@ -488,6 +504,7 @@ func select_cell(index: int) -> void:
 	queue_redraw()
 
 func _input(event: InputEvent) -> void:
+	if account_open: return
 	if name_open:
 		if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE: close_name_dialog()
 		elif event is InputEventScreenTouch and event.pressed: press(event.position,event.index)
@@ -539,6 +556,7 @@ func handle_press(pos: Vector2, id: int) -> void:
 		elif Rect2(37,210,406,64).has_point(pos): sound_on = not sound_on
 		elif Rect2(37,290,406,64).has_point(pos): effects = not effects
 		elif Rect2(37,370,406,64).has_point(pos): open_name_dialog()
+		elif Rect2(37,450,406,64).has_point(pos): account_panel.open()
 		save_best()
 		return
 	if home_open:
@@ -582,13 +600,14 @@ func handle_press(pos: Vector2, id: int) -> void:
 		if PROFILE_BACK.has_point(pos):
 			collection_open = false
 			if navigation_origin == "home": open_home()
-			else: map_open = true
-		elif Rect2(37, 630, 406, 44).has_point(pos):
-			sound_on = not sound_on
-			save_best()
+			else: profile_open = true
+		elif Rect2(37,125,198,48).has_point(pos): appearance_tab = 0
+		elif Rect2(245,125,198,48).has_point(pos): appearance_tab = 1
 		else:
 			for i in 4:
-				if Rect2(37, 180 + i * 95, 406, 80).has_point(pos): buy_cosmetic(i)
+				if Rect2(37,205+i*100,406,82).has_point(pos):
+					if appearance_tab == 0: choose_theme(i)
+					else: buy_cosmetic(i)
 		return
 	if map_open:
 		if island_overview:
@@ -623,12 +642,12 @@ func handle_press(pos: Vector2, id: int) -> void:
 			open_home()
 		return
 	if profile_open:
-		if PROFILE_BACK.has_point(pos):
+		if PROFILE_BACK.has_point(pos): profile_open = false
+		elif Rect2(37,350,406,60).has_point(pos):
 			profile_open = false
-		else:
-			for i in PALETTES.size():
-				if Rect2(37, 350 + i * 66, 406, 60).has_point(pos):
-					choose_theme(i)
+			collection_open = true
+			navigation_origin = "profile"
+		elif Rect2(37,426,406,60).has_point(pos): account_panel.open()
 		queue_redraw()
 		return
 	if PROFILE_BUTTON.has_point(pos):
@@ -671,7 +690,7 @@ func handle_press(pos: Vector2, id: int) -> void:
 func release_pointer() -> void:
 	dragging = false
 	pointer = -2
-	if busy or ended or profile_open or collection_open or league_open or map_open or home_open or settings_open or name_open:
+	if busy or ended or profile_open or collection_open or league_open or map_open or home_open or settings_open or name_open or account_open:
 		return
 	if chain.size() < 3:
 		chain.clear()
@@ -908,36 +927,27 @@ func box(rect: Rect2, color: Color, radius: int = 16) -> void:
 	draw_style_box(style, rect)
 
 func draw_profile() -> void:
-	draw_rect(Rect2(0, 0, 480, 800), Color("090d19"))
-	text("HEDEFİNİ BÜYÜT", 47, 27)
-	text("HEDEFLER VE ÖDÜLLER", 77, 18, Color("58d8ce"))
-	text("SEVİYE %d  •  %d YILDIZ" % [player_level(), stars], 123, 26, Color("ffd166"))
-	box(Rect2(37, 145, 406, 8), Color("172139"), 4)
-	box(Rect2(37, 145, 406 * float(xp % 100) / 100.0, 8), Color("9381ff"), 4)
-	text("Sonraki seviye: %d / 100 deneyim" % (xp % 100), 177, 16, Color("9caac7"))
-	box(Rect2(37, 194, 406, 126), Color("172139"))
-	text("GÖREV %d" % (quests_done + 1), 222, 16, Color("58d8ce"))
-	text(quest_title(), 253, 23)
-	text("İlerleme: %d / %d" % [quest_progress, quest_target()], 283, 18, Color("9caac7"))
-	text("Ödül: 1 yıldız + 30 deneyim", 307, 15, Color("ffd166"))
-	text("TEMALAR • Yıldızların harcanmaz", 344, 17, Color("9caac7"))
-	for i in PALETTES.size():
-		var y := 350 + i * 66
-		var unlocked: bool = stars >= THEME_COSTS[i] and (i != 3 or garden_unlocked())
-		box(Rect2(37, y, 406, 60), Color("25385a") if theme_index == i else Color("172139"))
-		label_at(THEME_NAMES[i], Vector2(115, y + 24), 18, Color.WHITE if unlocked else Color("9caac7"))
-		var status: String = "SEÇİLİ" if theme_index == i else ("SEÇ" if unlocked else "%d / %d yıldız" % [stars, THEME_COSTS[i]])
-		if i == 3 and not unlocked:
-			status = "10 bölümü tamamla"
-		label_at(status, Vector2(115, y + 48), 13, Color("58d8ce") if unlocked else Color("9caac7"))
-		for j in 4:
-			draw_circle(Vector2(250 + j * 45, y + 30), 13, Color(PALETTES[i][j], 1.0 if unlocked else 0.35))
-	text("60 SN MADALYAN: %s" % medal(timed_best), 643, 19, Color("ffd166"))
-	text("Süreli rekor: %d • %s" % [timed_best, next_medal(timed_best)], 671, 15, Color("9caac7"))
-	text("Görevler ve deneyim her iki modda kazanılır.", 695, 14, Color("9caac7"))
-	box(PROFILE_BACK, Color("526bd8"))
-	text("Oyuna dön", 746, 22)
-	text("Tur duraklatıldı • İlerleme bu cihazda saklanır", 788, 14, Color("9caac7"))
+	draw_rect(Rect2(0,0,480,800),Color("09281b"))
+	text("HEDEFLER VE ÖDÜLLER",65,27,Color("e3f4d4"))
+	text("SEVİYE %d" % player_level(),123,28,Color("ffd166"))
+	box(Rect2(37,145,406,8),Color("163d2d"),4)
+	box(Rect2(37,145,406*float(xp%100)/100.0,8),Color("4bce86"),4)
+	text("Sonraki seviye: %d / 100 deneyim" % (xp%100),177,16,Color("bce2c2"))
+	box(Rect2(37,194,406,126),Color("163d2d"))
+	text("GÖREV %d" % (quests_done+1),222,16,Color("bce2c2"))
+	text(quest_title(),253,23)
+	text("İlerleme: %d / %d" % [quest_progress,quest_target()],283,18)
+	text("Ödül: 15 kristal + 30 deneyim",307,15,Color("ffd166"))
+	box(Rect2(37,350,406,60),Color("14864c"))
+	text("Görünüm • Temalar ve baloncuklar",388,21)
+	box(Rect2(37,426,406,60),Color("163d2d"))
+	text("Hesap ve bulut kaydı",464,21)
+	text("Yıldızlar bölüm başarını gösterir.",535,17,Color("bce2c2"))
+	text("Deneyim seviyeni yükseltir.",566,17,Color("bce2c2"))
+	text("Kristaller baloncuk görünümü açar.",597,17,Color("bce2c2"))
+	text("Süreli rekor: %d • %s" % [timed_best,medal(timed_best)],654,17,Color("ffd166"))
+	box(PROFILE_BACK,Color("14864c"))
+	text("Oyuna dön",746,22)
 
 func stage_data() -> Dictionary:
 	return LEVELS[stage] if stage < 10 else EXTRA_LEVELS[stage - 10]
@@ -1538,25 +1548,33 @@ func buy_cosmetic(index: int) -> bool:
 	return true
 
 func draw_collection() -> void:
-	draw_world_background(2)
-	text("KOLEKSİYON", 50, 30, Color("70f6ff"))
-	text("%d KRİSTAL" % crystals, 96, 26, Color("ffd166"))
-	text("Bölüm ilk başarıları ve günlük yarış ödülleri", 131, 15, Color("9eb8a6"))
+	draw_rect(Rect2(0,0,480,800),Color("09281b"))
+	text("GÖRÜNÜM",55,30,Color("e3f4d4"))
+	text("%d KRİSTAL" % crystals,97,23,Color("ffd166"))
+	for tab in 2:
+		box(Rect2(37+tab*208,125,198,48),Color("14864c") if tab == appearance_tab else Color("163d2d"))
+		label_at(["Temalar","Baloncuklar"][tab],Vector2(136+tab*208,156),20,Color.WHITE)
 	for i in 4:
-		var y := 180 + i * 95
-		box(Rect2(37, y, 406, 80), Color("25385a") if cosmetic == i else Color("172139"))
-		label_at(["Klasik", "İnci Halkası", "Kristal Kesim", "Altın Yörünge"][i], Vector2(180, y + 29), 22, Color.WHITE)
-		var status := "SEÇİLİ" if cosmetic == i else ("SEÇ" if owned_cosmetics.has(i) else "%d kristal" % [0,75,125,200][i])
-		label_at(status, Vector2(180, y + 58), 16, Color("ffd166"))
-		draw_circle(Vector2(374, y + 39), 22, PALETTES[1][i])
-		if i == 1: draw_arc(Vector2(374, y + 39), 20, 0, TAU, 32, Color.WHITE, 1.5, true)
-		elif i == 2: draw_line(Vector2(362,y+33),Vector2(386,y+45),Color.WHITE,2,true)
-		elif i == 3: draw_arc(Vector2(374, y + 39), 25, 0.0, (0.0)+PI, 32, Color("fff4b3"), 2, true)
-	text("Görünümler güç avantajı sağlamaz.", 592, 16, Color("9eb8a6"))
-	box(Rect2(37, 630, 406, 44), Color("25385a"))
-	text("Ses: Açık" if sound_on else "Ses: Kapalı", 659, 20)
-	box(PROFILE_BACK, Color("526bd8"))
-	text("Oyuna dön", 746, 22)
+		var y := 205+i*100
+		var selected: bool = theme_index == i if appearance_tab == 0 else cosmetic == i
+		box(Rect2(37,y,406,82),Color("22583b") if selected else Color("163d2d"))
+		var title: String = THEME_NAMES[i] if appearance_tab == 0 else ["Klasik","İnci Halkası","Kristal Kesim","Altın Yörünge"][i]
+		label_at(title,Vector2(183,y+30),22,Color.WHITE)
+		var status := "SEÇİLİ" if selected else "SEÇ"
+		if appearance_tab == 0 and not theme_unlocked(i):
+			status = "Palmiye Adası'nı tamamla" if i == 3 else "%d / %d görev" % [maxi(quests_done,stars),THEME_COSTS[i]]
+		elif appearance_tab == 1 and not owned_cosmetics.has(i): status = "%d kristal" % [0,75,125,200][i]
+		label_at(status,Vector2(183,y+59),15,Color("ffd166"))
+		if appearance_tab == 0:
+			for j in 4: draw_circle(Vector2(340+(j%2)*30,y+27+(j/2)*30),11,PALETTES[i][j])
+		else:
+			draw_circle(Vector2(374,y+40),22,palette[i])
+			if i == 1: draw_arc(Vector2(374,y+40),20,0,TAU,32,Color.WHITE,1.5,true)
+			elif i == 2: draw_line(Vector2(362,y+34),Vector2(386,y+46),Color.WHITE,2,true)
+			elif i == 3: draw_arc(Vector2(374,y+40),25,0,PI,32,Color("fff4b3"),2,true)
+	text("Görünümler yalnızca görüntüyü değiştirir.",650,15,Color("bce2c2"))
+	box(PROFILE_BACK,Color("14864c"))
+	text("Geri dön",746,22)
 
 func draw_world_background(world: int) -> void:
 	if world == 0:
@@ -1613,6 +1631,9 @@ func random_color(count: int) -> int:
 	return (daily_random >> 16) % count
 
 func league_updated(data: Dictionary) -> void:
+	if data.get("action","") in ["cloud_get","cloud_save","account"]:
+		account_panel.received(data)
+		return
 	if not pending_player_name.is_empty():
 		if bool(data.get("profile_saved",false)):
 			player_name = str(data.get("nickname",pending_player_name))
@@ -1627,6 +1648,7 @@ func league_updated(data: Dictionary) -> void:
 	league_message = "Günlük en iyi puanların haftalık toplamı yarışır."
 	queue_redraw()
 func league_failed(value: String) -> void:
+	if account_panel != null and account_panel.waiting: account_panel.failure(value)
 	league_message = value
 	if not pending_player_name.is_empty():
 		pending_player_name = ""
@@ -1793,7 +1815,7 @@ func draw_home() -> void:
 	label_at("Bölüm Yolculuğu",Vector2(255,232),20,Color("cee7cb"))
 	draw_polyline(PackedVector2Array([Vector2(365,218),Vector2(372,225),Vector2(365,232)]),Color("bce2c2"),2.5,true)
 	home_card(HOME_DAILY,"Günlük Etkinlik","Bugünün meydan okuması","trophy",true)
-	home_card(HOME_COLLECTION,"Koleksiyon","Baloncuk görünümlerini keşfet","layers")
+	home_card(HOME_COLLECTION,"Görünüm","Temalar ve baloncuklar","layers")
 	home_card(HOME_LEAGUE,"Haftalık Sıralama","Bu haftanın en iyileri","medal")
 	box(Rect2(HOME_PLAY.position+Vector2(0,4),HOME_PLAY.size),Color("062015"),20)
 	var style := StyleBoxFlat.new()
@@ -1816,6 +1838,8 @@ func draw_settings() -> void:
 	box(Rect2(37,290,406,64),Color("163d2d"))
 	text("Animasyonlar: Açık" if effects else "Animasyonlar: Sade",330,23)
 	box(Rect2(37,370,406,64),Color("163d2d"))
+	box(Rect2(37,450,406,64),Color("163d2d"))
+	text("Hesap ve bulut kaydı",490,23)
 	text("Oyuncu adı: "+player_name if not player_name.is_empty() else "Oyuncu adını oluştur",410,21)
 	box(PROFILE_BACK,Color("14864c"))
 	text("Ana menüye dön",746,22)
@@ -1879,3 +1903,35 @@ func draw_name_dialog() -> void:
 	box(NAME_CANCEL,Color("163d2d"))
 	text("Geri dön",494,20)
 	text("Adını kaydetmek için internet gerekir.",562,14,Color("a8c9ae"))
+
+func progress_snapshot() -> Dictionary:
+	return {"version":1,"xp":xp,"stars":stars,"quests_done":quests_done,"quest_progress":quest_progress,"best":best,"timed_best":timed_best,"theme":theme_index,"level_stars":level_stars.duplicate(),"level_bests":level_bests.duplicate(),"crystals":crystals,"owned":owned_cosmetics.duplicate(),"cosmetic":cosmetic,"daily_day":daily_day,"daily_best":daily_best,"daily_rewarded":daily_rewarded,"daily_attempts":daily_attempts}
+
+func restore_snapshot(data: Dictionary) -> bool:
+	if int(data.get("version",0)) != 1 or not data.get("level_stars",[]) is Array or data.get("level_stars",[]).size() != 30 or not data.get("level_bests",[]) is Array or data.get("level_bests",[]).size() != 30: return false
+	if FileAccess.file_exists(save_path): DirAccess.copy_absolute(save_path,"user://progress-before-cloud.cfg")
+	xp = clampi(int(data.get("xp",0)),0,100000000)
+	stars = clampi(int(data.get("stars",0)),0,1000000)
+	quests_done = clampi(int(data.get("quests_done",0)),0,1000000)
+	quest_progress = clampi(int(data.get("quest_progress",0)),0,quest_target()-1)
+	best = clampi(int(data.get("best",0)),0,100000000)
+	timed_best = clampi(int(data.get("timed_best",0)),0,100000000)
+	for i in 30:
+		level_stars[i] = clampi(int(data["level_stars"][i]),0,3)
+		level_bests[i] = clampi(int(data.get("level_bests",[])[i]),0,100000000)
+	crystals = clampi(int(data.get("crystals",0)),0,100000000)
+	owned_cosmetics.assign([0])
+	for item in data.get("owned",[]):
+		if int(item) in [1,2,3] and not owned_cosmetics.has(int(item)): owned_cosmetics.append(int(item))
+	cosmetic = clampi(int(data.get("cosmetic",0)),0,3)
+	if not owned_cosmetics.has(cosmetic): cosmetic = 0
+	theme_index = clampi(int(data.get("theme",0)),0,3)
+	if not theme_unlocked(theme_index): theme_index = 0
+	palette = PALETTES[theme_index]
+	daily_day = str(data.get("daily_day",""))
+	daily_best = clampi(int(data.get("daily_best",0)),0,100000000)
+	daily_rewarded = str(data.get("daily_rewarded",""))
+	daily_attempts = clampi(int(data.get("daily_attempts",0)),0,1000000)
+	save_best()
+	queue_redraw()
+	return true
