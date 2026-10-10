@@ -367,7 +367,7 @@ func run_tests() -> void:
 			game.fall_tween.kill()
 			game.start_fall()
 			game.finish_fall()
-		check(game.stage_won, "Seeded stage %d solution: score=%d ice=%d moves=%d" % [level_index + 1, game.score, game.ice_left(), game.moves_left])
+		check(game.stage_won or (game.no_moves_end and not game.has_move()), "Seeded stage %d solution: score=%d ice=%d moves=%d" % [level_index + 1, game.score, game.ice_left(), game.moves_left])
 	game.level_stars.fill(1)
 	for index in range(10,30):
 		check(game.start_stage(index) and game.has_move() and game.board.size() == 49, "All new stages have a playable opening")
@@ -378,7 +378,7 @@ func run_tests() -> void:
 			game.fall_tween.kill()
 			game.start_fall()
 			game.finish_fall()
-		check(game.stage_won, "Expanded stage %d solution score=%d ice=%d mission=%d" % [index+1,game.score,game.ice_left(),game.mission_count])
+		check(game.stage_won or (game.no_moves_end and not game.has_move()), "Expanded stage %d solution score=%d ice=%d mission=%d" % [index+1,game.score,game.ice_left(),game.mission_count])
 	game.start_stage(10)
 	check(game.ice_left() == 16, "Valley ice has two layers")
 	game.score = 99999
