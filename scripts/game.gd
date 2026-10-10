@@ -167,6 +167,11 @@ var focused := true
 var remaining := ROUND_SECONDS
 var combo := 0
 var combo_left := 0.0
+var bubble_sprites: Dictionary = {}
+var bubble_viewports: Array[SubViewport] = []
+var bubble_cache_signature := ""
+var bubble_cache_ready := false
+var redraw_clock := 0.0
 var elapsed := 0.0
 var impact := 0.0
 var longest := 0
@@ -383,6 +388,7 @@ func restart() -> void:
 
 
 func _process(delta: float) -> void:
+	var was_animating := needs_continuous_redraw()
 	elapsed += delta
 	arrival = maxf(0.0, arrival - delta)
 	if ended: celebration += delta
@@ -411,7 +417,17 @@ func _process(delta: float) -> void:
 		floaters[i]["pos"] += Vector2(0, -42) * delta
 		if floaters[i]["life"] <= 0.0:
 			floaters.remove_at(i)
-	queue_redraw()
+	if was_animating and not needs_continuous_redraw(): queue_redraw()
+	redraw_clock += delta
+	if needs_continuous_redraw() and redraw_clock >= (1.0/15 if map_open else 1.0/30):
+		redraw_clock = 0.0
+		queue_redraw()
+
+func needs_continuous_redraw() -> bool:
+	if not focused: return false
+	if map_open: return effects
+	if home_open or settings_open or league_open or profile_open or collection_open: return false
+	return busy or not particles.is_empty() or not floaters.is_empty() or not special_waves.is_empty() or impact > 0.0 or arrival > 0.0 or (effects and not chain.is_empty()) or (started and timed_mode and not ended) or (ended and stage_won and celebration < 6.0)
 
 func end_round() -> void:
 	ended = true
@@ -489,6 +505,10 @@ func _notification(what: int) -> void:
 		focused = true
 
 func press(pos: Vector2, id: int) -> void:
+	handle_press(pos,id)
+	queue_redraw()
+
+func handle_press(pos: Vector2, id: int) -> void:
 	if settings_open:
 		if PROFILE_BACK.has_point(pos): open_home()
 		elif Rect2(37,210,406,64).has_point(pos): sound_on = not sound_on
@@ -662,7 +682,8 @@ func release_pointer() -> void:
 			floaters.append({"pos": middle + Vector2(0, 30), "text": "+%d SANİYE" % bonus, "life": 1.2, "color": Color("58d8ce")})
 		impact = minf(1.0, count / 8.0)
 		for index in clear_cells:
-			for n in 8:
+			for n in 2:
+				if particles.size() >= 48: break
 				var angle := fx_rng.randf_range(0.0, TAU)
 				particles.append({"pos": center(index), "velocity": Vector2.from_angle(angle) * fx_rng.randf_range(60, 150), "life": fx_rng.randf_range(0.35, 0.65), "color": palette[board[index]]})
 	popping.assign(clear_cells)
@@ -705,7 +726,7 @@ func prepare_resolution() -> void:
 			continue
 		activated.append(index)
 		if campaign_mode and stage_data().get("mission", "") == special_name_key(specials[index]): mission_count += 1
-		if effects:
+		if effects and special_waves.size() < 6:
 			var targets := PackedVector2Array()
 			if specials[index] == RAINBOW:
 				for target in board.size():
@@ -1064,7 +1085,7 @@ func draw_world_card(world: int) -> void:
 	frame.set_border_width_all(2 if selected else 1)
 	frame.set_corner_radius_all(12)
 	draw_style_box(frame, rect)
-	var t := elapsed if effects else 0.0
+	var t := 0.0
 	if world == 0:
 		# A tiny garden: rolling grass, curved leaves and a blooming flower.
 		draw_colored_polygon(PackedVector2Array([origin+Vector2(9,56),origin+Vector2(36,43),origin+Vector2(75,51),origin+Vector2(108,39),origin+Vector2(131,53),origin+Vector2(131,63),origin+Vector2(9,63)]), Color("2e6842"))
@@ -1202,7 +1223,7 @@ func special_name(kind: int) -> String:
 		_: return "Gökkuşağı"
 
 func draw_special_icon(kind: int, pos: Vector2, radius: float) -> void:
-	var time := elapsed if effects else 0.0
+	var time := 0.0
 	draw_arc(pos, radius + 2, 0, TAU, 48, Color(1, 1, 1, 0.85), 1.5, true)
 	if kind == BOMB:
 		draw_circle(pos + Vector2(0, 2), 13, Color("090e22"))
@@ -1240,18 +1261,18 @@ func draw_special_effect(wave: Dictionary) -> void:
 	var alpha := clampf(1.0 - age / 0.9, 0.0, 1.0)
 	if wave["kind"] == BOMB:
 		# Concentric blast rings, radial sparks, and a short-lived hot core.
-		for n in 3:
+		for n in 2:
 			var progress := maxf(0.0, age - n * 0.08)
-			draw_arc(pos, 15 + progress * 170, 0, TAU, 64, Color(1, 0.65 + n * 0.12, 0.25, alpha), 5 - n, true)
+			draw_arc(pos, 15 + progress * 170, 0, TAU, 32, Color(1, 0.65 + n * 0.12, 0.25, alpha), 5 - n, true)
 		draw_circle(pos, 20 + age * 90, Color(1, 0.5, 0.15, alpha * alpha * 0.18))
-		for n in 16:
-			var ray := Vector2.from_angle(n * TAU / 16)
+		for n in 8:
+			var ray := Vector2.from_angle(n * TAU / 8)
 			draw_line(pos + ray * (15 + age * 110), pos + ray * (25 + age * 160), Color(1, 0.9, 0.5, alpha), 3 * alpha + 1, true)
 	elif wave["kind"] == LIGHTNING:
-		for layer in 3:
+		for layer in 2:
 			var points := PackedVector2Array()
-			for n in 29:
-				points.append(Vector2(ORIGIN.x + n * CELL / 4, pos.y + sin(n * 2.3 + age * 50 + layer) * (7 + layer * 5) * alpha))
+			for n in 15:
+				points.append(Vector2(ORIGIN.x + n * CELL / 2, pos.y + sin(n * 2.3 + age * 50 + layer) * (7 + layer * 5) * alpha))
 			draw_polyline(points, Color(0.3, 0.85, 1, alpha * 0.18), 18 - layer * 3, true)
 			draw_polyline(points, Color(0.8, 1, 1, alpha), 3 - layer * 0.7, true)
 		for n in 7:
@@ -1264,7 +1285,7 @@ func draw_special_effect(wave: Dictionary) -> void:
 			var color := Color.from_hsv(float(n) / 8, 0.65, 1.0, alpha)
 			draw_arc(pos, 20 + age * 150, angle, angle + TAU / 8, 16, color, 4, true)
 		var targets: PackedVector2Array = wave.get("targets", PackedVector2Array())
-		for n in targets.size():
+		for n in range(0,mini(targets.size(),16),2):
 			var color := Color.from_hsv(fmod(float(n) / 7 + age, 1.0), 0.6, 1.0, alpha)
 			var tip := pos.lerp(targets[n], minf(1.0, age * 4))
 			draw_line(pos, tip, Color(color, alpha * 0.22), 6, true)
@@ -1322,7 +1343,7 @@ func _draw() -> void:
 		var selected := chain.has(i)
 		var radius := 23.0
 		if selected and effects:
-			radius += 1.5 + sin(elapsed * 9) * 1.2
+			radius += 2.0
 		if popping.has(i):
 			radius *= 1.0 - pop_progress
 		if campaign_mode and relay[i] > 0:
@@ -1336,7 +1357,7 @@ func _draw() -> void:
 		draw_living_bubble(i, pos, radius, selected)
 		if cosmetic == 1: draw_arc(pos, radius - 3, 0, TAU, 32, Color(1, 1, 1, 0.7), 1.5, true)
 		elif cosmetic == 2: draw_line(pos + Vector2(-12, -6), pos + Vector2(12, 6), Color(1, 1, 1, 0.5), 2, true)
-		elif cosmetic == 3: draw_arc(pos, radius + 1, elapsed if effects else 0.0, (elapsed if effects else 0.0) + PI, 24, Color("fff4b3"), 2, true)
+		elif cosmetic == 3: draw_arc(pos, radius + 1, 0.0, (0.0) + PI, 24, Color("fff4b3"), 2, true)
 		if radius > 10:
 			if specials[i] != 0:
 				draw_special_icon(specials[i], pos, radius)
@@ -1482,7 +1503,7 @@ func draw_collection() -> void:
 		draw_circle(Vector2(374, y + 39), 22, PALETTES[1][i])
 		if i == 1: draw_arc(Vector2(374, y + 39), 20, 0, TAU, 32, Color.WHITE, 1.5, true)
 		elif i == 2: draw_line(Vector2(362,y+33),Vector2(386,y+45),Color.WHITE,2,true)
-		elif i == 3: draw_arc(Vector2(374, y + 39), 25, elapsed if effects else 0.0, (elapsed if effects else 0.0)+PI, 32, Color("fff4b3"), 2, true)
+		elif i == 3: draw_arc(Vector2(374, y + 39), 25, 0.0, (0.0)+PI, 32, Color("fff4b3"), 2, true)
 	text("Görünümler güç avantajı sağlamaz.", 592, 16, Color("9eb8a6"))
 	box(Rect2(37, 630, 406, 44), Color("25385a"))
 	text("Ses: Açık" if sound_on else "Ses: Kapalı", 659, 20)
@@ -1495,8 +1516,8 @@ func draw_world_background(world: int) -> void:
 	else:
 		draw_rect(Rect2(0, 0, 480, 800), Color("0b2138") if world == 1 else Color("130b2b"))
 		for i in 22:
-			var movement := elapsed * (9 if world == 1 else 4) if effects else 0.0
-			var pos := Vector2(fmod(i * 131.0 + sin(elapsed + i) * (9 if effects else 0), 470) + 5, fmod(i * 67.0 + movement, 800))
+			var movement := 0.0
+			var pos := Vector2(fmod(i * 131.0 + 0.0, 470) + 5, fmod(i * 67.0 + movement, 800))
 			if world == 1:
 				draw_line(pos - Vector2(3,0), pos + Vector2(3,0), Color(0.7,0.9,1,0.35), 1, true)
 				draw_line(pos - Vector2(0,3), pos + Vector2(0,3), Color(0.7,0.9,1,0.35), 1, true)
@@ -1577,77 +1598,48 @@ func draw_league() -> void:
 	box(PROFILE_BACK,Color("355b44"))
 	text("Oyuna dön",746,22)
 
-func draw_living_bubble(index: int, pos: Vector2, radius: float, selected: bool) -> void:
+func ensure_bubble_cache() -> void:
+	if DisplayServer.get_name() == "headless": return
+	var signature := ""
+	for color in palette: signature += color.to_html()
+	if signature == bubble_cache_signature: return
+	bubble_cache_signature = signature
+	bubble_cache_ready = false
+	bubble_sprites.clear()
+	for viewport in bubble_viewports: viewport.queue_free()
+	bubble_viewports.clear()
+	for color_index in 4:
+		for shell_only in 2:
+			var viewport := SubViewport.new()
+			viewport.size = Vector2i(64,64)
+			viewport.transparent_bg = true
+			viewport.disable_3d = true
+			viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
+			add_child(viewport)
+			var stamp = load("res://scripts/bubble_stamp.gd").new()
+			stamp.color = palette[color_index]
+			stamp.color_index = color_index
+			stamp.shell_only = shell_only == 1
+			viewport.add_child(stamp)
+			bubble_viewports.append(viewport)
+			bubble_sprites[color_index+shell_only*4] = viewport.get_texture()
+	if not RenderingServer.frame_post_draw.is_connected(bubble_cache_finished):
+		RenderingServer.frame_post_draw.connect(bubble_cache_finished,CONNECT_ONE_SHOT)
+
+func bubble_cache_finished() -> void:
+	bubble_cache_ready = true
+	queue_redraw()
+
+func draw_living_bubble(index: int, pos: Vector2, radius: float, _selected: bool) -> void:
 	if radius < 0.5: return
-	var color: Color = palette[board[index]]
-	var time := elapsed if effects else 0.0
-	var phase := time * 1.8 + (0.0 if selected else index * 0.73)
-	var direction := Vector2.RIGHT
-	var link := chain.find(index)
-	if selected and chain.size() > 1:
-		var other: int = chain[link + 1] if link < chain.size() - 1 else chain[link - 1]
-		direction = (center(other) - center(index)).normalized()
-	var shell := PackedVector2Array()
-	for n in 40:
-		var angle := n * TAU / 40
-		var wave := sin(angle * 3 + phase) * 0.035 + cos(angle * 5 - phase * 0.5) * 0.018
-		var point := Vector2.from_angle(angle) * radius * (1.0 + wave)
-		if selected and effects: point += direction * maxf(0.0, point.normalized().dot(direction)) * radius * 0.045
-		shell.append(pos + point)
-	var shadow := PackedVector2Array()
-	for point in shell: shadow.append(point + Vector2(0, 3))
-	draw_colored_polygon(shadow, Color("070f22"))
-	draw_colored_polygon(shell, color.darkened(0.45))
-	draw_circle(pos - Vector2(1, 2), radius * 0.87, Color(color, 0.52))
-	draw_circle(pos - Vector2(radius * 0.13, radius * 0.18), radius * 0.68, Color(color.lightened(0.2), 0.17))
-	shell.append(shell[0])
-	draw_polyline(shell, Color(color.lightened(0.55), 0.82), maxf(0.7, radius * 0.045), true)
-	draw_arc(pos, radius * 0.9, PI * 1.12, PI * 1.78, 18, Color(1, 1, 1, 0.67), maxf(0.8, radius * 0.075), true)
-	draw_arc(pos + Vector2(0, 1), radius * 0.85, 0.2, 1.1, 12, Color(color.lightened(0.6), 0.45), 1, true)
-	if radius < 8 or specials[index] != 0: return
-	var light := color.lightened(0.72)
-	match board[index]:
-		0:
-			var ribbon := PackedVector2Array()
-			var angle := direction.angle() if selected else sin(phase * 0.4) * 0.13
-			for n in 28:
-				var t := float(n) / 27
-				var point := Vector2(sin(t * TAU + 0.3) * radius * 0.36, (t - 0.5) * radius * 1.23)
-				ribbon.append(pos + point.rotated(angle))
-			draw_polyline(ribbon, color.darkened(0.3), radius * 0.3, true)
-			draw_polyline(ribbon, light, radius * 0.23, true)
-			var gleam := PackedVector2Array()
-			for point in ribbon: gleam.append(point + Vector2(-radius * 0.055, -radius * 0.025))
-			draw_polyline(gleam, Color(1, 1, 1, 0.65), radius * 0.055, true)
-		1:
-			var merge := 0.65 + sin(time * 5) * 0.12 if selected and effects else (0.72 if selected else 0.0)
-			for n in 3:
-				var offset := Vector2.from_angle(n * TAU / 3 + phase * 0.32) * radius * 0.43 * (1.0 - merge)
-				var drop := pos + offset
-				var size := radius * (0.21 + merge * 0.045)
-				draw_circle(drop + Vector2(0, 1), size + 0.6, color.darkened(0.25))
-				draw_circle(drop, size, light)
-				draw_circle(drop - Vector2(size * 0.3, size * 0.35), size * 0.25, Color.WHITE)
-		2:
-			var pulse := sin(time * (6 if selected else 2.4)) * 0.06 if effects else 0.0
-			for n in 3:
-				var ring := radius * (0.28 + n * 0.19 + pulse)
-				draw_arc(pos, ring, 0, TAU, 32, Color(light, 0.9 - n * 0.17), maxf(1, radius * 0.065), true)
-			draw_circle(pos, radius * 0.16, light)
-			draw_circle(pos - Vector2(1, 1), radius * 0.07, Color.WHITE)
-		3:
-			var rotation := time * (2.6 if selected else 0.65) + (0.0 if selected else index * 0.73)
-			var orbit := PackedVector2Array()
-			for n in 41:
-				var t := n * TAU / 40
-				orbit.append(pos + Vector2(cos(t) * radius * 0.66, sin(t) * radius * 0.36).rotated(-0.65))
-			draw_polyline(orbit, Color(light, 0.7), maxf(1, radius * 0.06), true)
-			for n in 2:
-				var t := rotation + n * PI
-				var core := pos + Vector2(cos(t) * radius * 0.66, sin(t) * radius * 0.36).rotated(-0.65)
-				draw_circle(core, radius * 0.24, Color(light, 0.14))
-				draw_circle(core, radius * 0.17, light)
-				draw_circle(core - Vector2(1, 1), radius * 0.055, Color.WHITE)
+	ensure_bubble_cache()
+	var key: int = board[index] + (4 if specials[index] != 0 else 0)
+	if bubble_cache_ready and bubble_sprites.has(key):
+		var side := 64.0*radius/23.0
+		draw_texture_rect(bubble_sprites[key],Rect2(pos-Vector2.ONE*side/2,Vector2.ONE*side),false)
+	else:
+		draw_circle(pos,radius,palette[board[index]].darkened(0.25))
+		draw_circle(pos+Vector2(-5,-7),radius*0.18,Color(1,1,1,0.7))
 
 func open_home() -> void:
 	cancel_selection()
