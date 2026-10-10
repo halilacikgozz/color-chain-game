@@ -13,3 +13,18 @@ assert.equal(hasMove(board,specials),false);
 board[0]=board[2]=0; specials[1]=3; assert.equal(hasMove(board,specials),true);
 assert.equal(replay(fixture.day,fixture.moves,2),fixture.score);
 assert.throws(()=>replay(fixture.day,fixture.moves.slice(0,1),2));
+
+import {validateProgress} from '../supabase/functions/competition/progress.ts';
+const progress={version:1,xp:123,stars:3,quests_done:2,quest_progress:0,best:400,timed_best:0,crystals:80,daily_best:0,daily_attempts:0,theme:1,cosmetic:0,owned:[0],level_stars:Array(30).fill(0),level_bests:Array(30).fill(0),daily_day:'',daily_rewarded:''};
+assert.equal(validateProgress(progress).xp,123);
+assert.throws(()=>validateProgress({...progress,level_stars:[4]}));
+assert.throws(()=>validateProgress({...progress,crystals:-1}));
+assert.throws(()=>validateProgress({...progress,cosmetic:3}));
+
+import {parseRecoveryCode,createRecoveryCode} from '../supabase/functions/competition/account.ts';
+const id='12345678-1234-1234-1234-123456789abc';
+const code=createRecoveryCode(id);
+assert.equal(parseRecoveryCode(code).id,id);
+assert.equal(parseRecoveryCode(code).password.length,43);
+assert.notEqual(code,createRecoveryCode(id));
+assert.throws(()=>parseRecoveryCode('CC1.fake.short'));
