@@ -56,4 +56,8 @@ func completed(result: int, code: int, _headers: PackedStringArray, bytes: Packe
 		send_competition()
 	else:
 		phase = ""
+		if value.get("action","") == "account" and value.get("session") is Dictionary:
+			session = value["session"]
+			var file := FileAccess.open("user://competition_session.json", FileAccess.WRITE)
+			if file: file.store_string(JSON.stringify(session))
 		updated.emit(value)
