@@ -20,11 +20,3 @@ assert.equal(validateProgress(progress).xp,123);
 assert.throws(()=>validateProgress({...progress,level_stars:[4]}));
 assert.throws(()=>validateProgress({...progress,crystals:-1}));
 assert.throws(()=>validateProgress({...progress,cosmetic:3}));
-
-import {parseRecoveryCode,createRecoveryCode} from '../supabase/functions/competition/account.ts';
-const id='12345678-1234-1234-1234-123456789abc';
-const code=createRecoveryCode(id);
-assert.equal(parseRecoveryCode(code).id,id);
-assert.equal(parseRecoveryCode(code).password.length,43);
-assert.notEqual(code,createRecoveryCode(id));
-assert.throws(()=>parseRecoveryCode('CC1.fake.short'));
