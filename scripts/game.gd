@@ -1372,7 +1372,7 @@ func _draw() -> void:
 	var urgent := tension and moves_left <= 3 and not ended
 	var accent := Color("ffd166") if remaining > 10 or not timed_mode else Color("ff6584")
 	text("%s %d" % [WORLD_NAMES[stage / 10].to_upper(), stage % 10 + 1] if campaign_mode else ("GÜNLÜK YARIŞ" if daily_mode else "COLOR CHAIN"), 52, 30)
-	text("SV %d • %d yıldız • Hedefler ve ödüller ›" % [player_level(), stars], 78, 16, Color("58d8ce"))
+	text("SV %d • Hedefler ve ödüller ›" % player_level(), 78, 16, Color("58d8ce"))
 	box(Rect2(37, 92, 195, 36), Color("172139"))
 	box(Rect2(248, 92, 195, 36), Color("172139"))
 	label_at("HAMLE  %d" % moves_left if campaign_mode or daily_mode else ("SÜRE  %02d" % ceili(remaining) if timed_mode else "RAHAT MOD  ∞"), Vector2(134, 116), 18, accent)
@@ -1631,7 +1631,7 @@ func random_color(count: int) -> int:
 	return (daily_random >> 16) % count
 
 func league_updated(data: Dictionary) -> void:
-	if data.get("action","") in ["cloud_get","cloud_save","account"]:
+	if data.get("action","") in ["cloud_get","cloud_save","account","email_sent"]:
 		account_panel.received(data)
 		return
 	if not pending_player_name.is_empty():
