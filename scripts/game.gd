@@ -1501,10 +1501,11 @@ func menu_icon(kind: String, pos: Vector2, color: Color) -> void:
 			draw_line(pos+Vector2(0,7),pos+Vector2(0,19),color,5,true)
 			box(Rect2(pos+Vector2(-13,18),Vector2(26,5)),color,2)
 		"layers":
-			for i in 3:
-				var y := -12 + i * 10
-				var line := PackedVector2Array([pos+Vector2(-20,y),pos+Vector2(0,y+10),pos+Vector2(20,y),pos+Vector2(0,y-10),pos+Vector2(-20,y)])
-				draw_polyline(line,color,3,true)
+			var top := PackedVector2Array([pos+Vector2(-20,-9),pos+Vector2(0,1),pos+Vector2(20,-9),pos+Vector2(0,-19),pos+Vector2(-20,-9)])
+			draw_polyline(top,color,3,true)
+			for i in 2:
+				var y := 1 + i * 10
+				draw_polyline(PackedVector2Array([pos+Vector2(-20,y),pos+Vector2(0,y+10),pos+Vector2(20,y)]),color,3,true)
 		"medal":
 			draw_line(pos+Vector2(-13,-22),pos+Vector2(-4,-6),color,6,true)
 			draw_line(pos+Vector2(13,-22),pos+Vector2(4,-6),color,6,true)
