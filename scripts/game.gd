@@ -44,16 +44,16 @@ const EXTRA_LEVELS := [
  {"name":"Buz Labirenti","moves":32,"goal":1400,"ice":16,"colors":4,"mission":"bomb","target":3},
  {"name":"Kutup Zirvesi","moves":33,"goal":1500,"ice":16,"colors":3,"mission":"rainbow","target":1},
  {"name":"Buzun Kalbi","moves":34,"goal":1700,"ice":18,"colors":3,"mission":"chain","target":9},
- {"name":"Neon Kapısı","moves":27,"goal":1000,"ice":0,"colors":3,"mission":"relay","target":5},
- {"name":"Elektrik Bulvarı","moves":28,"goal":1200,"ice":0,"colors":3,"mission":"lightning","target":2},
- {"name":"Işık Köprüsü","moves":29,"goal":1400,"ice":0,"colors":3,"mission":"relay","target":7},
- {"name":"Enerji Hattı","moves":30,"goal":1500,"ice":0,"colors":4,"mission":"bomb","target":3},
+ {"name":"Mağara Kapısı","moves":27,"goal":1000,"ice":0,"colors":3,"mission":"relay","target":5},
+ {"name":"Lav Köprüsü","moves":28,"goal":1200,"ice":0,"colors":3,"mission":"lightning","target":2},
+ {"name":"Kristal Bahçesi","moves":29,"goal":1400,"ice":0,"colors":3,"mission":"relay","target":7},
+ {"name":"Alev Ocağı","moves":30,"goal":1500,"ice":0,"colors":4,"mission":"bomb","target":3},
  {"name":"Prizma Meydanı","moves":31,"goal":1700,"ice":0,"colors":3,"mission":"rainbow","target":2},
- {"name":"Neon Tüneli","moves":32,"goal":1900,"ice":0,"colors":4,"mission":"relay","target":9},
- {"name":"Voltaj Kulesi","moves":33,"goal":2100,"ice":0,"colors":3,"mission":"lightning","target":3},
- {"name":"Renk Fabrikası","moves":34,"goal":2300,"ice":0,"colors":3,"mission":"chain","target":10},
- {"name":"Gece Yarışı","moves":35,"goal":2500,"ice":0,"colors":4,"mission":"relay","target":11},
- {"name":"Şehrin Kalbi","moves":36,"goal":2800,"ice":0,"colors":3,"mission":"rainbow","target":2}
+ {"name":"Lav Tüneli","moves":32,"goal":1900,"ice":0,"colors":4,"mission":"relay","target":9},
+ {"name":"Volkan Kulesi","moves":33,"goal":2100,"ice":0,"colors":3,"mission":"lightning","target":3},
+ {"name":"Kristal Fırtınası","moves":34,"goal":2300,"ice":0,"colors":3,"mission":"chain","target":10},
+ {"name":"Alev Yolu","moves":35,"goal":2500,"ice":0,"colors":4,"mission":"relay","target":11},
+ {"name":"Adanın Kalbi","moves":36,"goal":2800,"ice":0,"colors":3,"mission":"rainbow","target":2}
 ]
 const PROFILE_BUTTON := Rect2(37, 60, 406, 25)
 const PROFILE_BACK := Rect2(37, 710, 406, 56)
