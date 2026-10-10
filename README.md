@@ -144,3 +144,10 @@ Tarayıcıda http://localhost:8000 aç. HTML dosyasına çift tıklamak yerine w
 - `.github/workflows/deploy.yml`: test, export ve Pages yayını.
 
 Kaynaklar: [Godot web export](https://docs.godotengine.org/en/4.4/tutorials/export/exporting_for_web.html), [GitHub Pages iş akışları](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages).
+
+
+### Ada yolculuğu
+
+Bölüm Yolculuğu artık deniz üzerinde Palmiye Adası, Buz Vadisi ve Yeraltı Adası'nı gösteren 2.5D bir harita açar. Her ada kayıtlı tamamlanan bölüm sayısını, yıldızlarını ve kilit durumunu gösterir. Adalara dokunarak bölümlerini inceleyebilir, önceki dünyanın finalini geçerek ilerleyebilirsiniz.
+
+Ada arka planı imagegen ile oluşturuldu. Arka plan üzerindeki isimler, ilerleme ve etkileşimler Godot tarafından çizilir. `assets/island-map.txt`, görselin JPEG verisinin Base64 biçimidir ve web export içinde paketlenir.
