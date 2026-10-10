@@ -107,6 +107,10 @@ var league_data: Dictionary = {}
 var league_message := "Günlük yarış puanların haftalık lige sayılır."
 var world_page := 0
 var island_overview := true
+var chapter_page := 0
+var chapter_textures: Array[ImageTexture] = []
+const CHAPTER_PREV := Rect2(22,660,112,40)
+const CHAPTER_NEXT := Rect2(346,660,112,40)
 var island_texture: ImageTexture
 const ISLAND_ZONES := [Rect2(10, 454, 330, 231), Rect2(160, 254, 310, 198), Rect2(10, 65, 330, 189)]
 const ISLAND_LABELS := [Vector2(178, 635), Vector2(330, 426), Vector2(157, 225)]
@@ -545,16 +549,23 @@ func press(pos: Vector2, id: int) -> void:
 				for i in 3:
 					if ISLAND_ZONES[i].has_point(pos):
 						world_page = i
+						chapter_page = chapter_default_page(i)
 						island_overview = false
 			return
-		if Rect2(25,95,430,94).has_point(pos):
+		if Rect2(12,12,48,48).has_point(pos):
 			island_overview = true
 			return
 		if PROFILE_BACK.has_point(pos):
 			island_overview = true
 			return
-		for i in 10:
-			if map_node(i).distance_to(pos) <= 27 and stage_unlocked(world_page * 10 + i):
+		if CHAPTER_PREV.has_point(pos):
+			chapter_page = 0
+			return
+		if CHAPTER_NEXT.has_point(pos):
+			chapter_page = 1
+			return
+		for i in range(chapter_page*5,chapter_page*5+5):
+			if map_node(i).distance_to(pos) <= 32 and stage_unlocked(world_page * 10 + i):
 				start_stage(world_page * 10 + i)
 		return
 	if MAP_BUTTON.has_point(pos) and not profile_open:
@@ -973,7 +984,12 @@ func check_stage_end() -> void:
 	queue_redraw()
 
 func map_node(index: int) -> Vector2:
-	return Vector2(105 if index % 2 == 0 else 325, 604 - index * 42)
+	var positions := [
+		[Vector2(172,606),Vector2(256,493),Vector2(174,316),Vector2(343,326),Vector2(309,146)],
+		[Vector2(164,625),Vector2(279,499),Vector2(330,351),Vector2(165,268),Vector2(294,159)],
+		[Vector2(238,625),Vector2(267,458),Vector2(145,286),Vector2(345,267),Vector2(246,129)]
+	]
+	return positions[world_page][index % 5]
 
 func draw_garden_background() -> void:
 	draw_rect(Rect2(0, 0, 480, 800), Color("0d241e"))
@@ -1087,41 +1103,78 @@ func draw_world_card(world: int) -> void:
 	label_at(["Bahçe", "Buz Vadisi", "Neo Şehir"][world], origin+Vector2(70,83), 15, accent if selected else Color("d1dce2"))
 	if selected: draw_circle(origin+Vector2(126,80),3,accent)
 
+func chapter_default_page(world: int) -> int:
+	for local_stage in 10:
+		var level := world*10+local_stage
+		if stage_unlocked(level) and level_stars[level] == 0: return local_stage / 5
+	return 1 if level_stars[world*10+9] > 0 else 0
+
+func load_chapter_art() -> void:
+	if chapter_textures.size() == 3: return
+	chapter_textures.clear()
+	for world in 3:
+		var picture := Image.new()
+		var bytes := Marshalls.base64_to_raw(FileAccess.get_file_as_string("res://assets/chapter-%d.txt" % world))
+		if picture.load_jpg_from_buffer(bytes) == OK:
+			chapter_textures.append(ImageTexture.create_from_image(picture))
+		else: chapter_textures.append(null)
+
 func draw_map() -> void:
 	if island_overview:
 		draw_island_overview()
 		return
-	draw_world_background(world_page)
-	text(WORLD_NAMES[world_page].to_upper(), 43, 29, Color("b8f0cc"))
+	load_chapter_art()
+	if chapter_textures[world_page] != null:
+		draw_texture_rect(chapter_textures[world_page],Rect2(0,0,480,800),false)
+	else: draw_world_background(world_page)
+	var colors := [Color("865126"),Color("25648d"),Color("57316e")]
+	var panel: Color = colors[world_page]
+	box(Rect2(65,12,345,45),panel,16)
+	label_at(WORLD_NAMES[world_page].to_upper(),Vector2(238,41),25,Color("fff5dc"))
+	box(Rect2(12,12,45,45),panel,22)
+	label_at("‹",Vector2(34,43),35,Color.WHITE)
 	var total := 0
-	for i in range(world_page * 10, world_page * 10 + 10): total += level_stars[i]
-	text("10 bölüm • %d / 30 yıldız • %d kristal" % [total, crystals], 74, 16, Color("ffd166"))
-	load_island_art()
-	if island_texture != null:
-		var image_size := island_texture.get_size()
-		var source_y: float = [0.60,0.39,0.14][world_page]
-		draw_texture_rect_region(island_texture, Rect2(25,95,430,94),Rect2(Vector2(0,image_size.y*source_y),Vector2(image_size.x,image_size.y*0.12)))
-	draw_rect(Rect2(25,95,430,94),Color(0.02,0.10,0.17,0.52))
-	label_at("‹ Ada haritasına dön",Vector2(240,151),22,Color.WHITE)
-	for i in range(1, 10):
-		var glow := 0.4 + sin(elapsed * 2 + i) * 0.15 if effects else 0.4
-		draw_line(map_node(i - 1), map_node(i), Color(0.4, 0.8, 0.7, glow) if stage_unlocked(world_page * 10 + i) else Color("355b44"), 7, true)
-	for i in 10:
-		var index := world_page * 10 + i
-		var pos := map_node(i)
-		var unlocked := stage_unlocked(index)
-		if unlocked and level_stars[index] == 0 and effects: draw_circle(pos, 29 + sin(elapsed * 3) * 2, Color(0.5, 0.7, 1, 0.15))
-		draw_circle(pos + Vector2(0, 4), 24, Color("09140e"))
-		draw_circle(pos, 24, Color("589e69") if level_stars[index] > 0 else (Color("526bd8") if unlocked else Color("263d33")))
-		label_at(str(index + 1) if unlocked else "KİLİT", pos + Vector2(0, 7), 21 if unlocked else 10, Color.WHITE)
-		var data: Dictionary = LEVELS[index] if index < 10 else EXTRA_LEVELS[index - 10]
-		label_at(data["name"], pos + Vector2(95 if i % 2 == 0 else -100, 5), 12, Color("b8ccbb"))
-		draw_rating(pos + Vector2(0, 33), level_stars[index], 5)
-	text("Finali geç, sıradaki dünyayı aç!", 662, 17, Color("b8f0cc"))
-	text("Dünya finalini geçerek yenisini aç.", 690, 15, Color("9eb8a6"))
-	box(PROFILE_BACK, Color("355b44"))
-	text("Adalara dön", 746, 21)
-	text("Can ve bekleme yok • İstediğin kadar dene", 785, 14, Color("9eb8a6"))
+	for level in range(world_page*10,world_page*10+10): total += level_stars[level]
+	box(Rect2(131,62,218,26),Color(0.02,0.10,0.19,0.85),12)
+	label_at("%d / 30 yıldız • Bölümler %d–%d" % [total,chapter_page*5+1,chapter_page*5+5],Vector2(240,80),13,Color("ffeab3"))
+	var next_level := -1
+	for level in range(world_page*10,world_page*10+10):
+		if stage_unlocked(level) and level_stars[level] == 0:
+			next_level = level
+			break
+	for local_stage in range(chapter_page*5,chapter_page*5+5):
+		var level := world_page*10+local_stage
+		var point := map_node(local_stage)
+		var unlocked := stage_unlocked(level)
+		var active := level == next_level
+		if active:
+			draw_circle(point,33+(sin(elapsed*3)*3 if effects else 0),Color(1,0.87,0.3,0.35))
+			var bubble := point+Vector2(0,-42+(sin(elapsed*2)*4 if effects else 0))
+			draw_circle(bubble,13,Color(0.7,0.9,1,0.65))
+			draw_arc(bubble,13,0,TAU,32,Color(1,1,1,0.9),2,true)
+			draw_circle(bubble+Vector2(-4,-5),3,Color.WHITE)
+		draw_circle(point+Vector2(0,3),26,Color(0.03,0.05,0.1,0.7))
+		draw_circle(point,25,panel if unlocked else Color("46515b"))
+		draw_arc(point,25,0,TAU,40,Color("ffe098") if unlocked else Color("a3afb9"),3,true)
+		label_at(str(local_stage+1),point+Vector2(0,8),26,Color.WHITE)
+		if not unlocked:
+			var lock := point+Vector2(18,16)
+			draw_arc(lock-Vector2(0,3),5,PI,TAU,12,Color("ffdb88"),2,true)
+			box(Rect2(lock-Vector2(6,1),Vector2(12,10)),Color("b79861"),2)
+		var data: Dictionary = LEVELS[level] if level < 10 else EXTRA_LEVELS[level-10]
+		box(Rect2(point+Vector2(-91,28),Vector2(182,24)),Color(panel,0.94),7)
+		label_at(data["name"],point+Vector2(0,45),13,Color.WHITE)
+		draw_rating(point+Vector2(0,58),level_stars[level],6)
+	if effects:
+		for particle in 8:
+			var point := Vector2(19+particle*62,105+fmod(particle*91.0+elapsed*(8 if world_page==1 else -5),490))
+			draw_circle(point,2,Color(0.7,0.9,1,0.45) if world_page==1 else Color(1,0.8,0.4,0.45))
+	box(CHAPTER_PREV,panel if chapter_page==1 else Color(panel,0.65),14)
+	label_at("‹ 1–5",CHAPTER_PREV.get_center()+Vector2(0,6),18,Color.WHITE)
+	box(CHAPTER_NEXT,panel if chapter_page==0 else Color(panel,0.65),14)
+	label_at("6–10 ›",CHAPTER_NEXT.get_center()+Vector2(0,6),18,Color.WHITE)
+	box(PROFILE_BACK,panel,20)
+	text("Adalara dön",746,23,Color.WHITE)
 
 func draw_rating(center: Vector2, rating: int, radius: float) -> void:
 	for n in 3:
