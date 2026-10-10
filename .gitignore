@@ -5,3 +5,8 @@ export_credentials.cfg
 *.tmp
 
 tests/daily_fixture.json
+
+*.keystore
+*.jks
+*.apk
+*.aab
