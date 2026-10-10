@@ -16,9 +16,17 @@ Deno.serve(async req=>{
   const date=new Date(day);date.setUTCDate(date.getUTCDate()-((date.getUTCDay()+6)%7));const week=date.toISOString().slice(0,10);
   const nickname='Oyuncu '+user.id.slice(0,6);
   const saved=await admin.from('cc_players').upsert({id:user.id,nickname},{onConflict:'id',ignoreDuplicates:true});if(saved.error)throw saved.error;
+  if(!['submit','leaderboard','profile'].includes(input.action))return response({error:'Geçersiz işlem'},400);
+  if(input.action==='profile'){
+   const name=typeof input.nickname==='string'?input.nickname.normalize('NFKC'):'';
+   if(!/^[\p{L}\p{N}_-]{3,16}$/u.test(name))return response({error:'3–16 harf, rakam, _ veya - kullan.'},400);
+   const result=await admin.from('cc_players').update({nickname:name}).eq('id',user.id);
+   if(result.error?.code==='23505')return response({error:'Bu oyuncu adı kullanılıyor; başka bir ad seç.'},409);
+   if(result.error)throw result.error;
+  }
   if(input.action==='submit'){
    if(input.day!==day)return response({error:'Günün tarihi değişti; yeni yarış başlat'},400);
-   const score=replay(day,input.moves);
+   const score=replay(day,input.moves,input.ruleset??1);
    const {data:old}=await admin.from('cc_scores').select('score').eq('player_id',user.id).eq('day',day).maybeSingle();
    if(!old||score>old.score){const result=await admin.from('cc_scores').upsert({player_id:user.id,day,score});if(result.error)throw result.error;}
   }
@@ -29,6 +37,6 @@ Deno.serve(async req=>{
   const {data:scores}=await admin.from('cc_scores').select('player_id,score').in('player_id',ids).gte('day',week).lte('day',day);
   const {data:players}=await admin.from('cc_players').select('id,nickname').in('id',ids);
   const rows=(players??[]).map(p=>({id:p.id,name:p.nickname,score:(scores??[]).filter(s=>s.player_id===p.id).reduce((a,s)=>a+s.score,0)})).sort((a,b)=>b.score-a.score||a.id.localeCompare(b.id));
-  return response({tier:member.tier,week,rows:rows.map((r,i)=>({name:r.name,score:r.score,rank:i+1,self:r.id===user.id})),promotion:'İlk 5 sonraki hafta yükselir'});
+  return response({profile_saved:input.action==='profile',nickname:(players??[]).find(p=>p.id===user.id)?.nickname??nickname,tier:member.tier,week,rows:rows.map((r,i)=>({name:r.name,score:r.score,rank:i+1,self:r.id===user.id})),promotion:'İlk 5 sonraki hafta yükselir'});
  }catch(e){return response({error:e instanceof Error?e.message:'İşlem tamamlanamadı'},400);}
 });
