@@ -19,6 +19,16 @@ func run_tests() -> void:
 	game.home_open = false
 	game.specials.fill(0)
 	check(game.board.size() == 49 and game.has_move(), "Initial board must be full and playable")
+	game.arrival = 0.0
+	game.impact = 0.0
+	game.started = false
+	check(not game.needs_continuous_redraw(), "Idle board must not request continuous rendering")
+	game.busy = true
+	check(game.needs_continuous_redraw(), "Falling stones still request animation frames")
+	game.busy = false
+	game.map_open = true
+	check(game.needs_continuous_redraw() == game.effects, "Map decorations honor the animation switch")
+	game.map_open = false
 	check(not game.adjacent(6, 7), "Rows must not wrap")
 	check(not game.adjacent(0, 8), "Diagonal selection is forbidden")
 	check(game.cell_at(Vector2(36, 230)) == -1, "Outside board must be rejected")
