@@ -277,7 +277,9 @@ func load_progress() -> bool:
 	if not FileAccess.file_exists(source) and save_path == SAVE: source = LEGACY_SAVE
 	if not FileAccess.file_exists(source): return false
 	var data = JSON.parse_string(FileAccess.get_file_as_string(source))
-	if not data is Dictionary or not data.get("version") in [1, 2]: return false
+	if not data is Dictionary: return false
+	# JSON numbers are floats; Array.has uses stricter type equality.
+	if data.get("version") != 1 and data.get("version") != 2: return false
 	if not data.get("board") is Array or data.board.size() != 49: return false
 	for value in data.board:
 		if not value is String or not valid_number(value): return false
