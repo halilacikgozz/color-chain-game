@@ -30,8 +30,6 @@ func run() -> void:
 	game.select_cell(1)
 	game.release_chain()
 	check(game.score == "8" and game.board[1] == "8", "Sum remains at final selected bottom-independent location")
-	# Target falls from row zero to row one after an empty stone beneath it? Here
-	# removal is in the same row, so column one's target remains at its original row.
 	check(game.board.size() == 49 and not game.board.has(""), "Gravity refills every cell")
 	check(not game.busy and game.phase == 0, "Reduced effects finish synchronously")
 	game.board.fill("2")
