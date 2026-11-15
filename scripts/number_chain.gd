@@ -222,17 +222,26 @@ func _input(event: InputEvent) -> void:
 			chain.clear()
 			queue_redraw()
 		elif event.pressed: pointer_down(event.position)
-		else: release_if_dragging()
+		else:
+			if dragging: drag_to(event.position)
+			release_if_dragging()
 	elif event is InputEventScreenDrag and event.index == 0 and dragging: drag_to(event.position)
 	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed: pointer_down(event.position)
-		else: release_if_dragging()
+		else:
+			if dragging: drag_to(event.position)
+			release_if_dragging()
 	elif event is InputEventMouseMotion and dragging: drag_to(event.position)
 
 func drag_to(p: Vector2) -> void:
 	var steps := maxi(1, int(last_pointer.distance_to(p) / 10.0))
 	for step in range(1, steps + 1):
-		select_cell(cell_at(last_pointer.lerp(p, float(step) / steps)))
+		var sample := last_pointer.lerp(p, float(step) / steps)
+		var cell := cell_at(sample)
+		# Ignore rectangular cell corners: a diagonal swipe must not pick up
+		# the two side stones while crossing the gap between bubble centers.
+		if cell >= 0 and sample.distance_to(center(cell)) <= STEP * 0.42:
+			select_cell(cell)
 	last_pointer = p
 
 func release_if_dragging() -> void:
