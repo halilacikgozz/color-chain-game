@@ -125,7 +125,6 @@ func has_move() -> bool:
 func release_chain() -> void:
 	dragging = false
 	if chain.size() < 2:
-		if chain.size() == 1: show_exact(board[chain[0]])
 		chain.clear()
 		queue_redraw()
 		return
@@ -137,24 +136,6 @@ func release_chain() -> void:
 		motions.append({"value":board[i], "from":center(i), "to":center(chain.back())})
 	if not effects: finish_merge()
 	queue_redraw()
-
-func show_exact(value: String) -> void:
-	var dialog := AcceptDialog.new()
-	dialog.title = "Taşın tam değeri"
-	dialog.ok_button_text = "Tamam"
-	var scroll := ScrollContainer.new()
-	scroll.custom_minimum_size = Vector2(320, 120)
-	var label := Label.new()
-	label.text = value
-	label.autowrap_mode = TextServer.AUTOWRAP_ARBITRARY
-	label.custom_minimum_size.x = 300
-	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(label)
-	dialog.add_child(scroll)
-	add_child(dialog)
-	dialog.confirmed.connect(dialog.queue_free)
-	dialog.canceled.connect(dialog.queue_free)
-	dialog.popup_centered(Vector2i(350, 180))
 
 func finish_merge() -> void:
 	var consumed := total()
