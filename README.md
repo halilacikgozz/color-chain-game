@@ -190,7 +190,7 @@ Kaynaklar: https://supabase.com/docs/guides/auth/auth-smtp, https://supabase.com
 
 ## Sayı Zinciri — deneme modu
 
-Ana menüde **YENİ • Sayı Zinciri’ni dene** ile açılır. Yatay/dikey/çapraz komşu, aynı değerli en az iki taşı sürükleyerek topla. Zincirin toplamı en yakın üst 2 kuvvetine tamamlanır ve son seçilen taşta oluşur, yerçekimiyle düşer ve tahta dolar. Örneğin iki 4 → 8; üç 4 → 16; dört 4 → 16; beş 4 → 32. Puan tüketilen taşların gerçek toplamı kadar artar. Seçim sırasında hem toplam hem oluşacak taş ayrı gösterilir. Geri sürüklemek seçimi kısaltır. Taşa tek dokunuş tam değeri gösterir. Hamle kalmadığında sonuç ekranı bekler; yeni oyun kendiliğinden başlamaz.
+Ana menüde **YENİ • Sayı Zinciri’ni dene** ile açılır. Yatay/dikey/çapraz komşu, aynı değerli en az iki taşı sürükleyerek topla. Zincirin toplamı en yakın üst 2 kuvvetine tamamlanır ve son seçilen taşta oluşur, yerçekimiyle düşer ve tahta dolar. Örneğin iki 4 → 8; üç 4 → 16; dört 4 → 16; beş 4 → 32. Puan tüketilen taşların gerçek toplamı kadar artar. Seçim sırasında hem toplam hem oluşacak taş ayrı gösterilir. Geri sürüklemek seçimi kısaltır. Tek taşa dokunmak pencere açmaz; yalnızca en az iki taş seçildiğinde birleşme yapılır. Hamle kalmadığında sonuç ekranı bekler; yeni oyun kendiliğinden başlamaz.
 
 Taşlar ve puanlar ondalık metin olarak tam hassasiyetle saklanır; int64 veya kayan nokta üst sınırı uygulanmaz (cihaz belleği pratik sınırdır). K/M/B gösterimi kısaltılmıştır; yuvarlatılmış değerler ≈ ile belirtilir. Bu modun kayıtları cihazda ayrıdır; bulut, bölüm ödülleri ve haftalık sıralamaya henüz dahil değildir. Mevcut Color Chain kayıtlarını değiştirmez. Animasyonlar yalnızca birleşme/düşme sırasında çalışır.
 
