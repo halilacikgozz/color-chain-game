@@ -89,7 +89,7 @@ func run() -> void:
 	game.overlay_press(Vector2(240,640))
 	check(game.overlay.is_empty() and not game.update_requested,"Later closes the notification and returns to game")
 	game.overlay = "settings"
-	game.overlay_press(Vector2(240,625))
+	game.overlay_press(Vector2(240,590))
 	check(game.overlay == "update","Manual settings entry still opens a deferred update")
 	DirAccess.remove_absolute(game.save_path)
 	DirAccess.remove_absolute(client.preferences_path)

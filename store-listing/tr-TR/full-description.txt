@@ -1,0 +1,19 @@
+Color Chain, sayı karelerini sürükleyerek birleştirdiğin çevrim dışı bir bulmaca oyunudur. Aynı iki sayıyla başla, oluşacak yeni sayıyı da zincirine bağla ve tek hamlede daha büyük değerler üret.
+
+2 + 2 + 4 + 8 tek zincirde 16 olur. Komşu kareleri yatay, dikey veya çapraz bağlayabilirsin. İlerledikçe daha yüksek sayıların peşinden git; bir sonraki hamleni kendin keşfet.
+
+• Doğrudan oyuna açılan sade 5×7 tahta
+• 2'nin kuvvetleriyle büyüyen sayı zincirleri
+• Hamle önerisi olmadan kendi stratejini kurma
+• Puan hedefleri ve oynayarak kazanılan elmaslar
+• Çekiç, karıştırma ve mıknatıs yardımcıları
+• Rekor, tahta ve ilerlemenin cihazda kaydedilmesi
+• Açılıp kapanabilen ses ve sade animasyon seçeneği
+• Süre baskısı olmadan oynama
+
+Hamle kalmadığında puanını incele; yeni tura ne zaman başlayacağına sen karar ver.
+
+Google Play sürümü reklam, uygulama içi satın alma ve hesap oluşturma içermez. Oyun çevrim dışı oynanır. İlerleme yalnızca bu cihazda saklanır; uygulamayı silersen veya verilerini temizlersen kayıtların silinir.
+
+Destek: colorchain39@gmail.com
+Gizlilik politikası: https://halilacikgozz.github.io/color-chain-game/privacy.html

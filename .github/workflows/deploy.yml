@@ -55,6 +55,7 @@ jobs:
           test -s "build/web/game-${GITHUB_SHA}.wasm"
           test -s "build/web/game-${GITHUB_SHA}.pck"
           touch build/web/.nojekyll
+          cp privacy.html build/web/privacy.html
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -154,9 +155,83 @@ jobs:
         if: github.event_name != 'pull_request'
         with:
           path: build/web
+  play_bundle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+          include-templates: true
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
+      - uses: actions/cache@v4
+        with:
+          path: ~/.local/share/color-chain-signing
+          key: color-chain-personal-apk-signing-v1
+      - name: Prepare Play build
+        run: |
+          sdkmanager "platform-tools" "build-tools;36.1.0" "platforms;android-36" "ndk;29.0.14206865"
+          mkdir -p "$HOME/.config/godot" build/play
+          touch build/.gdignore
+          test -f "$HOME/.local/share/color-chain-signing/personal.keystore"
+          python3 - <<'PYTHON'
+          import os, json
+          from pathlib import Path
+          code = int(os.environ['GITHUB_RUN_NUMBER'])
+          Path('build_info.json').write_text(json.dumps({'version_code':code,'version_name':'1.0.'+str(code),'distribution':'google_play'}))
+          p = Path('export_presets.cfg')
+          p.write_text(p.read_text().replace('version/code=1','version/code='+str(code)).replace('version/name="1.0"','version/name="1.0.'+str(code)+'"'))
+          settings = Path.home()/'.config/godot/editor_settings-4.7.tres'
+          settings.write_text('[gd_resource type="EditorSettings" format=3]\n\n[resource]\nexport/android/android_sdk_path = "'+os.environ['ANDROID_HOME']+'"\nexport/android/java_sdk_path = "'+os.environ['JAVA_HOME']+'"\n')
+          PYTHON
+      - name: Test rules on the Play engine
+        run: |
+          godot --headless --editor --path . --import
+          timeout 30s godot --headless --path . --script tests/test_numbers.gd
+          timeout 30s godot --headless --path . --script tests/test_ladder.gd
+          timeout 30s godot --headless --path . --script tests/test_store.gd
+      - name: Export signed Google Play App Bundle
+        run: |
+          export GODOT_ANDROID_KEYSTORE_RELEASE_PATH="$HOME/.local/share/color-chain-signing/personal.keystore"
+          export GODOT_ANDROID_KEYSTORE_RELEASE_USER=androiddebugkey
+          export GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD=android
+          godot --headless --path . --install-android-build-template --export-release GooglePlay build/play/color-chain.aab
+          jarsigner -verify build/play/color-chain.aab
+          keytool -printcert -jarfile build/play/color-chain.aab > build/play/upload-certificate.txt
+      - name: Validate store bundle and 16 KB support
+        run: |
+          curl --fail --location --retry 3 https://github.com/google/bundletool/releases/download/1.18.3/bundletool-all-1.18.3.jar --output /tmp/bundletool.jar
+          python3 tools/verify_play_bundle.py --bundle build/play/color-chain.aab --bundletool /tmp/bundletool.jar --version-code "$GITHUB_RUN_NUMBER" --report build/play/verification.json
+          export GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD=android
+          java -jar /tmp/bundletool.jar build-apks --bundle=build/play/color-chain.aab --output=build/play/check.apks --mode=universal --ks="$HOME/.local/share/color-chain-signing/personal.keystore" --ks-key-alias=androiddebugkey --ks-pass=env:GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD --key-pass=env:GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD
+          unzip -p build/play/check.apks universal.apk > build/play/universal-test.apk
+          "$ANDROID_HOME/build-tools/36.1.0/zipalign" -c -P 16 -v 4 build/play/universal-test.apk > build/play/zip-alignment.txt
+          "$ANDROID_HOME/build-tools/36.1.0/apksigner" verify --verbose build/play/universal-test.apk > build/play/apk-signature.txt
+          sha256sum build/play/color-chain.aab > build/play/SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: color-chain-google-play
+          path: |
+            build/play/color-chain.aab
+            build/play/verification.json
+            build/play/verification.manifest.xml
+            build/play/upload-certificate.txt
+            build/play/zip-alignment.txt
+            build/play/apk-signature.txt
+            build/play/SHA256SUMS.txt
+          retention-days: 90
   deploy:
     if: github.event_name != 'pull_request'
-    needs: build
+    needs: [build, play_bundle]
     runs-on: ubuntu-latest
     permissions:
       pages: write

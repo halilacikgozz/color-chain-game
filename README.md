@@ -51,3 +51,9 @@ Her başarılı Actions yayını aynı artan sürüm kodunu APK'ya ve `update.js
 `tests/test_updates.gd` yeni/eşit/eski sürüm, bozuk bilgi, farklı paket veya indirme adresi, çevrim dışı yanıt, 24 saat erteleme, gerçek yerel HTTP isteği, hamle sırasında bildirim erteleme ve ayarlardan elle açma davranışlarını kontrol eder. Gerçek telefonda indirme ve Android paket kurulumunun uçtan uca doğrulanması ayrıca gerekir.
 
 Kaynaklar: [Godot HTTPRequest](https://docs.godotengine.org/en/4.4/classes/class_httprequest.html), [Android uygulama güncellemeleri](https://developer.android.com/google/play/app-updates), [Android web üzerinden dağıtım](https://developer.android.com/distribute/marketing-tools/alternative-distribution).
+
+## Google Play hazırlığı
+
+Play Store'a yükleme henüz yapılmadı. `GooglePlay` dağıtımı Godot 4.7.2, Android hedef API 36 ve 16 KB native sayfa desteği için ayrı hazırlanır. Deneme APK'sı ve web sürümü mevcut derleme yolunda kalır. Mağaza derlemesinde harici APK güncelleyicisi ve internet izni bulunmaz; güncellemeler Google Play'den alınır. Ayarlara herkese açık gizlilik/destek sayfası eklenmiştir.
+
+`store-listing/PUBLISHING.md` hesap, imzalama kararı, kapalı test ve veri güvenliği taslaklarını içerir. `store-listing/tr-TR/` mağaza metinlerini, `store-listing/graphics/` mağaza görselleri taslaklarını içerir. Kullanıcı tarafından verilen herkese açık destek adresi `colorchain39@gmail.com`dur. Fiziksel cihaz ve Play Console onayı gereklidir.

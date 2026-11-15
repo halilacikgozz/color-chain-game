@@ -10,3 +10,8 @@ tests/daily_fixture.json
 *.jks
 *.apk
 *.aab
+
+android/
+play-publication/bundle/
+
+**/__pycache__/

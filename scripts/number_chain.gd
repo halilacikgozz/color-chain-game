@@ -37,6 +37,7 @@ var palette_cache := {}
 var audio: AudioStreamPlayer
 var sounds := {}
 var reward_flash := 0.0
+var distribution_store := OS.has_feature("play_store")
 var updater: Node
 var updates_auto_start := true
 var update_requested := false
@@ -109,7 +110,8 @@ func _ready() -> void:
 	audio.volume_db = -17
 	add_child(audio)
 	if not load_progress(): new_game()
-	updater = preload("res://scripts/update_checker.gd").new()
+	var checker_path := "res://scripts/store_update_checker.gd" if distribution_store else "res://scripts/update_checker.gd"
+	updater = load(checker_path).new()
 	updater.auto_start = updates_auto_start
 	updater.changed.connect(update_state_changed)
 	add_child(updater)
@@ -479,16 +481,19 @@ func overlay_press(p: Vector2) -> void:
 	elif overlay == "rules":
 		if Rect2(90,678,300,48).has_point(p): overlay = "settings"
 	elif overlay == "settings":
-		if Rect2(90,316,300,52).has_point(p): sound_on = not sound_on
-		elif Rect2(90,388,300,52).has_point(p): effects = not effects
-		elif Rect2(90,460,300,52).has_point(p): overlay = "rules"
-		elif Rect2(90,532,300,52).has_point(p): overlay = "restart"
-		elif Rect2(90,602,300,48).has_point(p):
-			if updater.has_update():
+		if Rect2(90,316,300,48).has_point(p): sound_on = not sound_on
+		elif Rect2(90,378,300,48).has_point(p): effects = not effects
+		elif Rect2(90,440,300,48).has_point(p): overlay = "rules"
+		elif Rect2(90,502,300,48).has_point(p): overlay = "restart"
+		elif Rect2(90,564,300,48).has_point(p):
+			if distribution_store:
+				updater.open_store()
+			elif updater.has_update():
 				overlay = "update"
 				updater.mark_prompted()
 			else: updater.check(true)
-		elif Rect2(90,680,300,48).has_point(p): overlay = ""
+		elif Rect2(90,626,300,48).has_point(p): OS.shell_open("https://halilacikgozz.github.io/color-chain-game/privacy.html")
+		elif Rect2(90,688,300,48).has_point(p): overlay = ""
 	save_progress()
 	queue_redraw()
 
@@ -688,16 +693,17 @@ func draw_overlay() -> void:
 	if overlay == "settings":
 		label("AYARLAR",Vector2(240,276),28)
 		label("Sürüm "+updater.current_name,Vector2(240,300),12,Color("b7a4d7"))
-		button(Rect2(90,316,300,52),"Ses: "+("Açık" if sound_on else "Kapalı"))
-		button(Rect2(90,388,300,52),"Animasyon: "+("Açık" if effects else "Sade"))
-		button(Rect2(90,460,300,52),"Nasıl oynanır?")
-		button(Rect2(90,532,300,52),"Yeni tur başlat")
-		var update_label := "Güncellemeleri denetle"
+		button(Rect2(90,316,300,48),"Ses: "+("Açık" if sound_on else "Kapalı"))
+		button(Rect2(90,378,300,48),"Animasyon: "+("Açık" if effects else "Sade"))
+		button(Rect2(90,440,300,48),"Nasıl oynanır?")
+		button(Rect2(90,502,300,48),"Yeni tur başlat")
+		var update_label := "Play Store’da aç" if distribution_store else "Güncellemeleri denetle"
 		if updater.checking: update_label = "Denetleniyor…"
 		elif updater.has_update(): update_label = "Yeni sürüm: "+updater.latest_name
-		button(Rect2(90,602,300,48),update_label)
-		label(updater.status,Vector2(240,668),11,Color("c6b5de"),316)
-		button(Rect2(90,680,300,48),"Oyuna dön",true)
+		button(Rect2(90,564,300,48),update_label)
+		label(updater.status,Vector2(240,624),10,Color("c6b5de"),316)
+		button(Rect2(90,626,300,48),"Gizlilik ve destek")
+		button(Rect2(90,688,300,48),"Oyuna dön",true)
 	elif overlay == "update":
 		label("GÜNCELLEME VAR",Vector2(240,287),26,Color("d2bcff"))
 		label("Yeni sürüm: "+updater.latest_name,Vector2(240,333),20)
