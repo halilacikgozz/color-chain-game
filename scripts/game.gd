@@ -560,6 +560,10 @@ func handle_press(pos: Vector2, id: int) -> void:
 		save_best()
 		return
 	if home_open:
+		if Rect2(37,700,350,30).has_point(pos):
+			save_best()
+			get_tree().change_scene_to_file("res://scenes/number_chain.tscn")
+			return
 		if Rect2(105,727,270,48).has_point(pos): open_name_dialog()
 		elif HOME_JOURNEY.has_point(pos):
 			home_open = false
@@ -1664,6 +1668,8 @@ func draw_league() -> void:
 	var tier := clampi(int(league_data.get("tier",0)), 0, 3)
 	text(["Bronz", "Gümüş", "Altın", "Elmas"][tier], 98, 27, Color("ffd166"))
 	box(LEAGUE_NAME,Color("25385a"),12)
+	box(Rect2(37,700,350,30),Color("244d39"),10)
+	label_at("YENİ • Sayı Zinciri’ni dene ›",Vector2(212,721),16,Color("ffd384"))
 	label_at(player_name+" ›" if not player_name.is_empty() else "Oyuncu adını oluştur ›",LEAGUE_NAME.get_center()+Vector2(0,5),15,Color.WHITE)
 	text(league_message, 163, 12, Color("9eb8a6"))
 	var rows: Array = league_data.get("rows", [])
@@ -1830,6 +1836,8 @@ func draw_home() -> void:
 	menu_icon("play",Vector2(91,648),Color("e3f4d4"))
 	label_at("Serbest Oyna",Vector2(271,647),27,Color("eef6d7"))
 	label_at("Sınırsız hamle, rahat oyun",Vector2(271,675),15,Color("c4e6c3"))
+	box(Rect2(37,700,350,30),Color("244d39"),10)
+	label_at("YENİ • Sayı Zinciri’ni dene ›",Vector2(212,721),16,Color("ffd384"))
 	label_at(player_name+" ›" if not player_name.is_empty() else "Oyuncu adını oluştur ›",Vector2(240,758),17,Color("bce2c2"))
 	menu_icon("gear",HOME_SETTINGS.get_center(),Color("a6d3b0"))
 
