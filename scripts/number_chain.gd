@@ -81,7 +81,7 @@ func new_game() -> void:
 	queue_redraw()
 
 func adjacent(a: int, b: int) -> bool:
-	return absi(a % SIDE - b % SIDE) + absi(a / SIDE - b / SIDE) == 1
+	return a != b and maxi(absi(a % SIDE - b % SIDE), absi(a / SIDE - b / SIDE)) == 1
 
 func center(i: int) -> Vector2:
 	return ORIGIN + Vector2(i % SIDE, i / SIDE) * STEP + Vector2.ONE * STEP / 2.0
@@ -107,6 +107,8 @@ func has_move() -> bool:
 	for i in 49:
 		if i % SIDE < 6 and board[i] == board[i + 1]: return true
 		if i < 42 and board[i] == board[i + SIDE]: return true
+		if i < 42 and i % SIDE < 6 and board[i] == board[i + SIDE + 1]: return true
+		if i < 42 and i % SIDE > 0 and board[i] == board[i + SIDE - 1]: return true
 	return false
 
 func release_chain() -> void:
@@ -311,7 +313,7 @@ func _draw() -> void:
 		var expression := " + ".join(terms) if chain.size() <= 3 else compact(board[chain[0]]) + " + … + " + compact(board[chain[0]])
 		label(expression + " = " + compact(total()), Vector2(240, 183), 24, Color("ffd384"))
 	else: label("Aynı sayıları birleştir, toplamı büyüt", Vector2(240, 181), 17)
-	label("Yalnızca yatay ve dikey komşular", Vector2(240, 205), 13, Color("a5c8b3"))
+	label("Yatay, dikey ve çapraz komşular", Vector2(240, 205), 13, Color("a5c8b3"))
 	panel(Rect2(31, 214, 418, 418), Color("123426"), 20)
 	if phase == 2:
 		var t := 1.0 - pow(1.0 - minf(elapsed / 0.26, 1.0), 3)
