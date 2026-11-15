@@ -133,7 +133,7 @@ func show_exact(value: String) -> void:
 	scroll.custom_minimum_size = Vector2(320, 120)
 	var label := Label.new()
 	label.text = value
-	label.autowrap_mode = TextServer.AUTOWRAP_ANYWHERE
+	label.autowrap_mode = TextServer.AUTOWRAP_ARBITRARY
 	label.custom_minimum_size.x = 300
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(label)
