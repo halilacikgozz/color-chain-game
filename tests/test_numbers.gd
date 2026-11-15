@@ -1,108 +1,144 @@
 extends SceneTree
 var failures := 0
 const Numbers = preload("res://scripts/number_chain.gd")
-func check(ok: bool, message: String) -> void:
+func check(ok: bool,message: String) -> void:
 	if not ok:
 		failures += 1
 		push_error(message)
-func _initialize() -> void:
-	call_deferred("run")
+func _initialize() -> void: call_deferred("run")
 func run() -> void:
-	check(Numbers.add("8", "8") == "16", "Two equal stones sum")
-	check(Numbers.add("999999999999999999999999999999", "1") == "1000000000000000000000000000000", "Carry beyond int64 is exact")
-	check(Numbers.add("128000", "128000") == "256000", "Large tiles sum exactly")
-	check(Numbers.compact("128000") == "128K", "128K display")
-	check(Numbers.power_at_least("12") == "16", "Three fours round up to sixteen")
-	check(Numbers.power_at_least("16") == "16", "Exact power does not jump another tier")
-	check(Numbers.power_at_least("20") == "32", "Five fours reach thirty-two")
-	check(Numbers.power_at_least("18446744073709551617") == "36893488147419103232", "Rounding remains exact beyond int64")
-	check(not Numbers.valid_number("1e30") and not Numbers.valid_number("-2"), "Save accepts exact decimal integers only")
+	check(ProjectSettings.get_setting("application/run/main_scene") == "res://scenes/number_chain.tscn","App launches directly into numbers")
+	check(Numbers.add("999999999999999999999999999999","1") == "1000000000000000000000000000000","Exact decimal carry beyond int64")
+	check(Numbers.power_at_least("12") == "16" and Numbers.power_at_least("16") == "16","Long chains only produce powers of two")
+	check(Numbers.power_at_least("18446744073709551617") == "36893488147419103232","No float rounding above int64")
+	check(Numbers.ratio("500","1000") == 0.5 and Numbers.ratio("0","1000") == 0,"Goal gauge starts at zero and reaches halfway")
+	check(absf(Numbers.ratio("5000000000000000000000000","10000000000000000000000000")-0.5) < 0.001,"Goal gauge handles huge scores")
 	var game = Numbers.new()
-	game.save_path = "user://number_chain_test.json"
+	game.save_path = "user://number_chain_test_v3.json"
 	DirAccess.remove_absolute(game.save_path)
 	root.add_child(game)
 	game.effects = false
+	game.sound_on = false
+	check(game.board.size() == 35 and game.has_move(),"5 by 7 fresh board is playable")
+	check(not game.adjacent(4,5) and not game.adjacent(0,0),"Rows do not wrap or select themselves")
+	for pair in [[0,6],[6,0],[4,8],[8,4]]:
+		game.board.fill("4")
+		game.chain.clear()
+		game.select_cell(pair[0])
+		game.select_cell(pair[1])
+		check(game.chain.size() == 2,"Diagonal direction is selectable")
+	game.chain.clear()
 	game.board.fill("4")
-	game.board[2] = "8"
+	game.board[1] = "8"
 	game.select_cell(0)
 	game.select_cell(1)
-	game.select_cell(2)
-	check(game.chain == [0, 1], "Different values cannot join a chain")
-	game.select_cell(0)
-	check(game.chain == [0], "Backtracking removes last tile")
-	check(not game.adjacent(6, 7) and not game.adjacent(0, 0) and not game.adjacent(0, 16), "No wrap, self or distant selection")
-	check(game.adjacent(0, 8) and game.adjacent(8, 0) and game.adjacent(6, 12) and game.adjacent(12, 6), "All diagonal directions allowed")
+	check(game.chain == [0],"Unequal numbers cannot join")
 	game.chain.clear()
 	game.board.fill("4")
+	game.pointer_down(game.center(0),3)
+	game.drag_to(game.center(0)+Vector2(46,34))
+	game.drag_to(game.center(6))
+	check(game.chain == [0,6],"Diagonal drag ignores corners of side squares")
 	game.select_cell(0)
-	game.last_pointer = game.center(0)
-	game.drag_to(game.center(0) + Vector2(34, 25))
-	game.drag_to(game.center(8))
-	check(game.chain == [0, 8], "Off-center diagonal swipes skip neighboring cell corners")
-	game.chain.clear()
-	game.select_cell(0)
-	game.dragging = true
-	game.last_pointer = game.center(0)
+	check(game.chain == [0],"Diagonal backtracking shortens chain")
 	var release := InputEventScreenTouch.new()
-	release.index = 0
-	release.position = game.center(8)
+	release.index = 3
+	release.position = game.center(6)
 	release.pressed = false
-	var before_release: String = game.score
+	var before: String = game.score
 	game._input(release)
-	check(game.score == Numbers.add(before_release, "8") and not game.dragging, "Fast touch release includes final diagonal stone without motion event")
-	game.score = "0"
+	check(game.score == Numbers.add(before,"8") and game.pointer_id == -2,"Final touch position is included for nonzero touch IDs")
 	game.board.fill("4")
-	game.select_cell(0)
-	game.select_cell(1)
+	game.chain.assign([0,1,2])
+	check(game.merge_result() == "16" and game.total() == "12","Preview distinguishes total from resulting tier")
+	before = game.score
 	game.release_chain()
-	check(game.score == "8" and game.board[1] == "8", "Sum remains at final selected bottom-independent location")
-	check(game.board.size() == 49 and not game.board.has(""), "Gravity refills every cell")
-	check(not game.busy and game.phase == 0, "Reduced effects finish synchronously")
+	check(game.board[2] == "16" and game.score == Numbers.add(before,"12"),"Three fours produce sixteen and twelve score")
+	check(game.board.size() == 35 and not game.board.has(""),"Gravity fills every hole")
+	game.board.fill("4")
+	game.chain.assign([0,1])
+	game.effects = true
+	game.release_chain()
+	game.cancel_pointer()
+	check(game.chain == [0,1],"Focus changes preserve an in-flight merge")
+	game.effects = false
+	game.finish_merge()
+	check(not game.busy,"Reduced effects settle completely")
+	game.score = "998"
+	game.goal = "1000"
+	game.gems = 0
 	game.board.fill("2")
-	game.board[42] = "1208925819614629174706176"
-	game.board[43] = game.board[42]
-	game.select_cell(42)
-	game.select_cell(43)
+	game.chain.assign([0,1])
 	game.release_chain()
-	check(game.board[43] == "2417851639229258349412352", "Merged value has no int64 cap")
-	var expected: Array[String] = game.board.duplicate()
+	check(game.score == "1002" and game.goal == "2000" and game.gems == 20,"Checkpoint awards twenty gems once and advances")
+	game.advance_goal(true)
+	check(game.gems == 20,"Checkpoint cannot be claimed twice")
+	game.board.fill("4")
+	game.gems = 90
+	game.choose_tool("hammer")
+	check(game.gems == 90,"Choosing a tool does not spend gems")
+	game.apply_tool(0)
+	check(game.gems == 75 and not game.board.has(""),"Hammer charges only when a square is removed and refilled")
+	game.board.fill("4")
+	var sorted_before: Array = game.board.duplicate()
+	sorted_before.sort()
+	game.choose_tool("shuffle")
+	var sorted_after: Array = game.board.duplicate()
+	sorted_after.sort()
+	check(game.gems == 55 and sorted_before == sorted_after and game.has_move(),"Shuffle preserves stones and creates legal moves")
+	for i in 35:
+		var v := "2"
+		for n in i: v = Numbers.add(v,v)
+		game.board[i] = v
+	var funds: int = game.gems
+	game.choose_tool("shuffle")
+	check(game.gems == funds,"Shuffle does not charge when no matching values exist")
+	game.choose_tool("magnet")
+	game.apply_tool(0)
+	check(game.gems == funds,"Magnet does not charge for an unmatched square")
+	game.board.fill("4")
+	game.board[0] = "8"
+	game.board[34] = "8"
+	game.apply_tool(0)
+	check(game.gems == funds-25 and game.board[0] == "16","Magnet merges distant equal squares at selected target")
+	game.gems = 0
+	game.choose_tool("hammer")
+	check(game.active_tool.is_empty(),"Insufficient gems cannot activate a helper")
+	for value in game.board: check(Numbers.power_at_least(value) == value,"All spawned squares retain binary tiers")
+	game.board.fill("2")
+	game.board[30] = "1208925819614629174706176"
+	game.board[31] = game.board[30]
+	game.chain.assign([30,31])
+	game.release_chain()
+	check(game.board[31] == "2417851639229258349412352","Very large merges remain exact")
+	game.gems = 65
 	game.save_progress()
+	var expected: Array = game.board.duplicate()
 	game.board.fill("2")
-	check(game.load_progress() and game.board == expected, "Board and decimal values persist")
-	game.board.fill("4")
-	game.chain.assign([0, 1, 2])
-	var score_before: String = game.score
-	check(game.merge_result() == "16" and game.total() == "12", "Preview separates real sum from new power tile")
-	game.release_chain()
-	check(game.board[2] == "16" and game.score == Numbers.add(score_before, "12"), "Three fours create sixteen but award actual consumed total")
-	for value in game.board: check(Numbers.power_at_least(value) == value, "Spawned and merged tiles remain binary powers")
-	var old_board: Array[String] = []
-	old_board.resize(49)
-	old_board.fill("6")
-	var old_file := FileAccess.open(game.save_path, FileAccess.WRITE)
-	old_file.store_string(JSON.stringify({"version":1,"board":old_board,"score":"35","best":"40","largest":"12"}))
-	old_file.close()
-	check(game.load_progress() and game.board[0] == "8" and game.largest == "16" and game.score == "35", "Legacy arbitrary-number progress migrates without losing points")
-	check(JSON.parse_string(FileAccess.get_file_as_string(game.save_path)).version == 2, "Migrated save uses new rule version")
-	for i in 49: game.board[i] = str(i + 1)
-	check(not game.has_move(), "Unique board has no moves")
+	check(game.load_progress() and game.board == expected and game.gems == 65,"Board, score and helper wallet persist")
+	var legacy: Array = []
+	legacy.resize(49)
+	legacy.fill("6")
+	var file := FileAccess.open(game.save_path,FileAccess.WRITE)
+	file.store_string(JSON.stringify({"version":1,"board":legacy,"score":"35","best":"40","largest":"12"}))
+	file.close()
+	check(game.load_progress() and game.board.size() == 35 and game.reserve.size() == 14 and game.score == "35","49-cell save migrates to 35 with all leftover stones reserved")
+	check(game.board[0] == "8" and game.reserve[0] == "8" and game.largest == "16","Legacy arbitrary values migrate to powers of two")
+	check(game.spawn_value() == "8" and game.reserve.size() == 13,"Reserved old stones return on refill")
+	for i in 35:
+		var v := "2"
+		for n in i: v = Numbers.add(v,v)
+		game.board[i] = v
+	check(not game.has_move(),"Distinct board has no moves")
 	game.finish_fall()
-	check(game.ended and game.board[0] == "1", "No moves ends round without restarting")
-	game.ended = false
-	game.board[8] = game.board[0]
-	check(game.has_move(), "A diagonal-only pair keeps the round playable")
-	game.select_cell(0)
-	game.select_cell(8)
-	check(game.chain == [0, 8], "Equal diagonal neighbors join the chain")
-	game.select_cell(0)
-	check(game.chain == [0], "Diagonal backtracking removes last tile")
-	game.select_cell(8)
-	game.release_chain()
-	check(game.board[8] == "2", "Diagonal chain sums at final tile")
-	for i in 49: game.board[i] = str(i + 1)
-	game.board[12] = game.board[6]
-	check(game.has_move(), "Opposite diagonal is detected as a legal move")
+	check(game.ended and game.board[0] == "2","No moves shows results without automatic restart")
+	game.board[6] = game.board[0]
+	check(game.has_move(),"Diagonal-only pair prevents false game over")
+	var old_best: String = game.best
+	funds = game.gems
+	game.new_game()
+	check(game.gems == funds and game.best == old_best,"New rounds preserve gems and best score")
 	DirAccess.remove_absolute(game.save_path)
 	game.queue_free()
-	if failures == 0: print("Number Chain: exact sums, selection, gravity, persistence and end state passed")
+	if failures == 0: print("Number game: direct launch, square board, diagonal touch, exact tiers, tools, goals and migrations passed")
 	quit(failures)
