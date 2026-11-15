@@ -32,6 +32,27 @@ func run() -> void:
 	check(game.chain == [0], "Backtracking removes last tile")
 	check(not game.adjacent(6, 7) and not game.adjacent(0, 0) and not game.adjacent(0, 16), "No wrap, self or distant selection")
 	check(game.adjacent(0, 8) and game.adjacent(8, 0) and game.adjacent(6, 12) and game.adjacent(12, 6), "All diagonal directions allowed")
+	game.chain.clear()
+	game.board.fill("4")
+	game.select_cell(0)
+	game.last_pointer = game.center(0)
+	game.drag_to(game.center(0) + Vector2(34, 25))
+	game.drag_to(game.center(8))
+	check(game.chain == [0, 8], "Off-center diagonal swipes skip neighboring cell corners")
+	game.chain.clear()
+	game.select_cell(0)
+	game.dragging = true
+	game.last_pointer = game.center(0)
+	var release := InputEventScreenTouch.new()
+	release.index = 0
+	release.position = game.center(8)
+	release.pressed = false
+	var before_release: String = game.score
+	game._input(release)
+	check(game.score == Numbers.add(before_release, "8") and not game.dragging, "Fast touch release includes final diagonal stone without motion event")
+	game.score = "0"
+	game.board.fill("4")
+	game.select_cell(0)
 	game.select_cell(1)
 	game.release_chain()
 	check(game.score == "8" and game.board[1] == "8", "Sum remains at final selected bottom-independent location")
