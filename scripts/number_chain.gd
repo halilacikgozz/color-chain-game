@@ -150,14 +150,14 @@ func cell_at(p: Vector2) -> int:
 	var q := (p - ORIGIN) / STEP
 	return int(q.y) * COLS + int(q.x)
 
-func can_extend(i: int, result_hint: String = "") -> bool:
+func can_extend(i: int) -> bool:
 	if i < 0 or i >= COUNT or chain.is_empty() or chain.has(i): return false
 	if not adjacent(chain.back(),i): return false
 	# Start with an equal pair, then continue at the last tier or at the
 	# actual merged tier displayed in the preview. Backtracking recomputes it.
 	if board[i] == board[chain.back()]: return true
 	if chain.size() < 2: return false
-	return board[i] == (result_hint if not result_hint.is_empty() else merge_result())
+	return board[i] == merge_result()
 
 func select_cell(i: int) -> void:
 	if i < 0 or i >= COUNT or busy or ended or not overlay.is_empty(): return
@@ -568,12 +568,12 @@ func tile_color(value: String) -> Color:
 	if not palette_cache.has(value): palette_cache[value] = COLORS[(rank_of(value)-1)%COLORS.size()]
 	return palette_cache[value]
 
-func stone(value: String,p: Vector2,selected: bool = false,eligible: bool = false) -> void:
+func stone(value: String,p: Vector2,selected: bool = false) -> void:
 	var color := tile_color(value)
 	var rect := Rect2(p-Vector2(32,32),Vector2(64,64))
 	panel(Rect2(rect.position+Vector2(0,3),rect.size),Color("16171c"),12)
-	var border := Color.WHITE if selected else (Color("ddc9ff") if eligible else Color.TRANSPARENT)
-	panel(rect.grow(3) if selected else rect,color,12,border,3 if selected else (2 if eligible else 0))
+	var border := Color.WHITE if selected else Color.TRANSPARENT
+	panel(rect.grow(3) if selected else rect,color,12,border,3 if selected else 0)
 	var ink := Color("272532") if color.get_luminance() > 0.48 else Color.WHITE
 	label(compact(value),p+Vector2(0,10),29,ink,58)
 
@@ -640,7 +640,7 @@ func _draw() -> void:
 	if reward_flash > 0: panel(Rect2(40,182,400,12),Color(0.85,0.73,1,reward_flash*0.6),6)
 	var hint := message
 	if chain.size() >= 2:
-		hint = "Toplam "+compact(total())+" • Sırada "+compact(board[chain.back()])+" veya "+compact(merge_result())
+		hint = str(chain.size())+" taş • Toplam "+compact(total())
 	label(hint,Vector2(240,219),15,Color("d0ceda"),408)
 	panel(Rect2(32,228,416,576),Color("1b1c20"),24,Color("41424a"),2)
 	if phase == 2:
@@ -651,10 +651,9 @@ func _draw() -> void:
 			var points := PackedVector2Array()
 			for i in chain: points.append(center(i))
 			draw_polyline(points,Color("d0b9ff"),8,true)
-		var result_hint := merge_result() if chain.size() >= 2 else ""
 		for i in board.size():
 			if phase == 1 and chain.has(i): continue
-			stone(board[i],center(i),chain.has(i),not busy and can_extend(i,result_hint))
+			stone(board[i],center(i),chain.has(i))
 		if phase == 1:
 			var t := minf(elapsed/0.18,1)
 			for m in motions: stone(m.value,m.from.lerp(m.to,t),true)
