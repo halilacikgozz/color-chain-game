@@ -457,7 +457,7 @@ func overlay_press(p: Vector2) -> void:
 			save_progress()
 			var error: Error = updater.open_download()
 			if error == OK: overlay = "install_help"
-			else: message = "İndirme açılamadı • Ayarlardan tekrar deneyebilirsin"
+			else: updater.status = "İndirme açılamadı. Daha sonra tekrar dene."
 		elif Rect2(90,616,300,48).has_point(p):
 			updater.dismiss()
 			update_requested = false
@@ -691,6 +691,7 @@ func draw_overlay() -> void:
 		label("Yeni sürüm: "+updater.latest_name,Vector2(240,333),20)
 		label("Yüklü sürüm: "+updater.current_name,Vector2(240,363),14,Color("b9b6c5"))
 		for i in updater.notes.size(): label(updater.notes[i],Vector2(240,404+i*24),14,Color("e1dce9"),320)
+		if updater.status.begins_with("İndirme açılamadı"): label(updater.status,Vector2(240,524),12,Color("f0a4a4"),316)
 		button(Rect2(90,544,300,56),"Güncellemeyi indir",true)
 		button(Rect2(90,616,300,48),"Daha sonra")
 		label("Kurulum Android onayıyla tamamlanır.",Vector2(240,705),13,Color("b3b2be"))

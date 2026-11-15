@@ -39,6 +39,9 @@ func run() -> void:
 	client.dismiss()
 	client.prompted_code = 0
 	check(not client.should_prompt(),"Later defers same version for twenty-four hours")
+	client.dismissed_until = Time.get_unix_time_from_system()-1.0
+	check(client.should_prompt(),"Notification returns after deferral expires even without restarting")
+	client.dismiss()
 	var restored = Checker.new()
 	restored.auto_start = false
 	restored.preferences_path = client.preferences_path

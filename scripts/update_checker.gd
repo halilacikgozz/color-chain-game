@@ -56,6 +56,7 @@ func mark_prompted() -> void:
 	prompted_code = latest_code
 
 func dismiss() -> void:
+	prompted_code = 0
 	dismissed_code = latest_code
 	dismissed_until = Time.get_unix_time_from_system()+86400.0
 	var config := ConfigFile.new()
