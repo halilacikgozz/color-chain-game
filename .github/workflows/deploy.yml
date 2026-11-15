@@ -33,6 +33,8 @@ jobs:
         run: godot --headless --editor --path . --import
       - name: Test number game and save migration
         run: timeout 30s godot --headless --path . --script tests/test_numbers.gd
+      - name: Test growing number chains
+        run: timeout 30s godot --headless --path . --script tests/test_ladder.gd
       - name: Test app updates over HTTP
         run: |
           python3 -m http.server 8765 --bind 127.0.0.1 --directory tests/fixtures > /tmp/update-fixture.log 2>&1 &

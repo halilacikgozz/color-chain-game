@@ -2,9 +2,9 @@
 
 Oyun doğrudan **5 sütun × 7 satırlık kare sayı tahtasına** açılır. Önceki ana menü, adalar, bölümler, koleksiyon, günlük etkinlik ve haftalık lig bu sürümün akışından çıkarılmıştır.
 
-- Aynı değerli en az iki kareyi sürükleyerek bağla. Yatay, dikey ve çapraz komşular seçilebilir; geri sürükleme seçimi kısaltır.
+- İlk iki kare aynı değerli olmalı. Ardından son kareyle aynı değerdeki komşuya veya o ana kadarki birleşmenin oluşturacağı sayıdaki komşuya devam edebilirsin. Örnek: 2 + 2 + 4 + 8 → 16. Yatay, dikey ve çapraz komşular seçilebilir; geri sürükleme seçimi kısaltır ve kabul edilen yeni değeri yeniden hesaplar. 2 ile 4 tek başına başlangıç çifti olamaz; 2 + 2 + 4 sonrasında tekrar 2’ye düşülemez.
 - Seçilen toplam yukarı doğru 2'nin kuvvetine tamamlanır: iki 4 → 8, üç 4 → 16, dört 4 → 16, beş 4 → 32. Birleşme son karede gerçekleşir, boşluklar aşağı düşerek dolar.
-- Seçim sırasında oluşacak kare ve gerçek toplam ayrı gösterilir. Puan gerçek toplam kadar artar.
+- Seçim sırasında oluşacak kare ve gerçek toplam ayrı gösterilir; bağlanabilecek komşular açık renkli çerçeveyle vurgulanır. Puan gerçek toplam kadar artar.
 - Sayılar ondalık metinle tam hassasiyetle saklanır; int64 veya kayan nokta sınırı yoktur. Bellek ve hesaplama süresi pratik sınırdır. K/M/B gösterimi kısaltmadır; yaklaşık değerler ≈ ile belirtilir.
 - Tek dokunuş hiçbir pencere açmaz.
 - Her puan hedefi **20 elmas** kazandırır. İlk hedef 1.000, sonraki hedefler iki katıdır. İlk kurulumda 90 elmas verilir; yeni tur elmasları yenilemez.

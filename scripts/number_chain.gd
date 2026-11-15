@@ -30,7 +30,7 @@ var sound_on := true
 var save_path := SAVE
 var rng := RandomNumberGenerator.new()
 var font := ThemeDB.fallback_font
-var message := "Aynı sayıları bağla • Çapraz da olur"
+var message := "Aynı sayıyla başla, oluşan sayıyla devam et"
 var overlay := ""
 var active_tool := ""
 var palette_cache := {}
@@ -135,7 +135,7 @@ func new_game() -> void:
 	active_tool = ""
 	pointer_id = -2
 	dragging = false
-	message = "Aynı sayıları bağla • Çapraz da olur"
+	message = "Aynı sayıyla başla, oluşan sayıyla devam et"
 	save_progress()
 	queue_redraw()
 
@@ -150,12 +150,21 @@ func cell_at(p: Vector2) -> int:
 	var q := (p - ORIGIN) / STEP
 	return int(q.y) * COLS + int(q.x)
 
+func can_extend(i: int, result_hint: String = "") -> bool:
+	if i < 0 or i >= COUNT or chain.is_empty() or chain.has(i): return false
+	if not adjacent(chain.back(),i): return false
+	# Start with an equal pair, then continue at the last tier or at the
+	# actual merged tier displayed in the preview. Backtracking recomputes it.
+	if board[i] == board[chain.back()]: return true
+	if chain.size() < 2: return false
+	return board[i] == (result_hint if not result_hint.is_empty() else merge_result())
+
 func select_cell(i: int) -> void:
 	if i < 0 or i >= COUNT or busy or ended or not overlay.is_empty(): return
 	var before := chain.size()
 	if chain.is_empty(): chain.append(i)
 	elif chain.size() > 1 and i == chain[chain.size()-2]: chain.pop_back()
-	elif not chain.has(i) and adjacent(chain.back(),i) and board[i] == board[chain[0]]: chain.append(i)
+	elif can_extend(i): chain.append(i)
 	if chain.size() > before: tone(mini(chain.size(),8))
 	queue_redraw()
 
@@ -387,7 +396,7 @@ func choose_tool(tool: String) -> void:
 	active_tool = "" if active_tool == tool else tool
 	if active_tool == "hammer": message = "Kırılacak kareyi seç • İptal için çekiçe dokun"
 	elif active_tool == "magnet": message = "Aynı sayıları toplamak için bir kare seç"
-	else: message = "Aynı sayıları bağla • Çapraz da olur"
+	else: message = "Aynı sayıyla başla, oluşan sayıyla devam et"
 	queue_redraw()
 
 func shuffle_board() -> void:
@@ -559,11 +568,12 @@ func tile_color(value: String) -> Color:
 	if not palette_cache.has(value): palette_cache[value] = COLORS[(rank_of(value)-1)%COLORS.size()]
 	return palette_cache[value]
 
-func stone(value: String,p: Vector2,selected: bool = false) -> void:
+func stone(value: String,p: Vector2,selected: bool = false,eligible: bool = false) -> void:
 	var color := tile_color(value)
 	var rect := Rect2(p-Vector2(32,32),Vector2(64,64))
 	panel(Rect2(rect.position+Vector2(0,3),rect.size),Color("16171c"),12)
-	panel(rect.grow(3) if selected else rect,color,12,Color.WHITE if selected else Color.TRANSPARENT,3 if selected else 0)
+	var border := Color.WHITE if selected else (Color("ddc9ff") if eligible else Color.TRANSPARENT)
+	panel(rect.grow(3) if selected else rect,color,12,border,3 if selected else (2 if eligible else 0))
 	var ink := Color("272532") if color.get_luminance() > 0.48 else Color.WHITE
 	label(compact(value),p+Vector2(0,10),29,ink,58)
 
@@ -628,7 +638,9 @@ func _draw() -> void:
 	var progress := ratio(score,goal)
 	if progress > 0: panel(Rect2(40,182,maxf(12,400*progress),12),Color("a27ee8"),6)
 	if reward_flash > 0: panel(Rect2(40,182,400,12),Color(0.85,0.73,1,reward_flash*0.6),6)
-	var hint := str(chain.size())+" taş • Toplam "+compact(total()) if chain.size() >= 2 else message
+	var hint := message
+	if chain.size() >= 2:
+		hint = "Toplam "+compact(total())+" • Sırada "+compact(board[chain.back()])+" veya "+compact(merge_result())
 	label(hint,Vector2(240,219),15,Color("d0ceda"),408)
 	panel(Rect2(32,228,416,576),Color("1b1c20"),24,Color("41424a"),2)
 	if phase == 2:
@@ -639,9 +651,10 @@ func _draw() -> void:
 			var points := PackedVector2Array()
 			for i in chain: points.append(center(i))
 			draw_polyline(points,Color("d0b9ff"),8,true)
+		var result_hint := merge_result() if chain.size() >= 2 else ""
 		for i in board.size():
 			if phase == 1 and chain.has(i): continue
-			stone(board[i],center(i),chain.has(i))
+			stone(board[i],center(i),chain.has(i),not busy and can_extend(i,result_hint))
 		if phase == 1:
 			var t := minf(elapsed/0.18,1)
 			for m in motions: stone(m.value,m.from.lerp(m.to,t),true)
@@ -708,6 +721,6 @@ func draw_overlay() -> void:
 		button(Rect2(90,576,300,48),"Vazgeç")
 	else:
 		label("SAYI ZİNCİRİ",Vector2(240,280),27)
-		var lines := ["Aynı sayıları sürükleyerek bağla.","Yatay, dikey ve çapraz seçim serbest.","En az iki kare seç; geri giderek kısalt.","Uzun zincir üst 2 kuvvetine tamamlanır.","2 + 2 = 4; üç tane 2 ise 8 üretir.","Çekiç bir kareyi kırar.","Karıştırma yeni eşleşmeler oluşturur.","Mıknatıs aynı sayıların hepsini toplar.","Her puan hedefi 20 elmas kazandırır."]
-		for i in lines.size(): label(lines[i],Vector2(240,324+i*34),15,Color("d6d3df"),320)
+		var lines := ["İki aynı kareyle zinciri başlat.","Yatay, dikey ve çapraz bağlayabilirsin.","Oluşacak değeri de zincire ekleyebilirsin.","Örnek: 2 + 2 + 4 + 8 toplam 16.","Son kareyle aynı sayıyla da devam et.","Uzun zincir üst 2 kuvvetine tamamlanır.","Geri sürükleyerek seçimi kısaltabilirsin.","Çekiç bir kareyi kırar.","Karıştırma yeni eşleşmeler oluşturur.","Mıknatıs aynı sayıların hepsini toplar.","Her puan hedefi 20 elmas kazandırır."]
+		for i in lines.size(): label(lines[i],Vector2(240,324+i*28),14,Color("d6d3df"),320)
 		button(Rect2(90,678,300,48),"Geri",true)
