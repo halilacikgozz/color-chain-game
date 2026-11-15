@@ -187,3 +187,9 @@ Supabase → Authentication → Emails → SMTP Settings. Test amaçlı Gmail SM
 SMTP sonrası Emails → Magic link or OTP ve Change email address şablonlarını `supabase/templates/` altındaki HTML'lerle güncelle. Site URL oyun adresi olsun. Anonymous Sign-Ins ve Email etkin, Confirm email açık olmalı. E-posta bağlama mevcut anonim kimliği korur; doğrulama kapatılmamalı. Gmail SMTP küçük denemeler içindir; genel yayın için ayrı gönderim hizmeti ve doğrulanmış alan adı tercih edilir.
 
 Kaynaklar: https://supabase.com/docs/guides/auth/auth-smtp, https://supabase.com/docs/guides/auth/auth-anonymous, https://support.google.com/accounts/answer/185833, https://support.google.com/mail/answer/7104828.
+
+## Sayı Zinciri — deneme modu
+
+Ana menüde **YENİ • Sayı Zinciri’ni dene** ile açılır. Yatay/dikey komşu, aynı değerli en az iki taşı sürükleyerek topla. Toplam son seçilen taşta oluşur, yerçekimiyle düşer ve tahta dolar. Geri sürüklemek seçimi kısaltır. Taşa tek dokunuş tam değeri gösterir. Hamle kalmadığında sonuç ekranı bekler; yeni oyun kendiliğinden başlamaz.
+
+Taşlar ve puanlar ondalık metin olarak tam hassasiyetle saklanır; int64 veya kayan nokta üst sınırı uygulanmaz (cihaz belleği pratik sınırdır). K/M/B gösterimi kısaltılmıştır; yuvarlatılmış değerler ≈ ile belirtilir. Bu modun kayıtları cihazda ayrıdır; bulut, bölüm ödülleri ve haftalık sıralamaya henüz dahil değildir. Mevcut Color Chain kayıtlarını değiştirmez. Animasyonlar yalnızca birleşme/düşme sırasında çalışır.
