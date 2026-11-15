@@ -13,6 +13,7 @@ var largest := "2"
 var ended := false
 var busy := false
 var dragging := false
+var last_pointer := Vector2.ZERO
 var phase := 0
 var elapsed := 0.0
 var motions: Array[Dictionary] = []
@@ -201,17 +202,24 @@ func _process(delta: float) -> void:
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventScreenTouch:
+		if event.index != 0: return
 		if event.canceled:
 			dragging = false
 			chain.clear()
 			queue_redraw()
 		elif event.pressed: pointer_down(event.position)
 		else: release_if_dragging()
-	elif event is InputEventScreenDrag and event.index == 0 and dragging: select_cell(cell_at(event.position))
+	elif event is InputEventScreenDrag and event.index == 0 and dragging: drag_to(event.position)
 	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed: pointer_down(event.position)
 		else: release_if_dragging()
-	elif event is InputEventMouseMotion and dragging: select_cell(cell_at(event.position))
+	elif event is InputEventMouseMotion and dragging: drag_to(event.position)
+
+func drag_to(p: Vector2) -> void:
+	var steps := maxi(1, int(last_pointer.distance_to(p) / 10.0))
+	for step in range(1, steps + 1):
+		select_cell(cell_at(last_pointer.lerp(p, float(step) / steps)))
+	last_pointer = p
 
 func release_if_dragging() -> void:
 	if dragging: release_chain()
@@ -236,6 +244,7 @@ func pointer_down(p: Vector2) -> void:
 		if Rect2(80, 460, 320, 54).has_point(p): new_game()
 		return
 	dragging = true
+	last_pointer = p
 	chain.clear()
 	select_cell(cell_at(p))
 
