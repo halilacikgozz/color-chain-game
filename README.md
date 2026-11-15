@@ -39,3 +39,15 @@ Testler doğrudan açılış, 35 kare, dört çapraz yön, hızlı/parmak kimli�
 Android paket kimliği `com.halilacikgozz.colorchain` korunur. Mevcut anahtar GitHub Actions önbelleğinde tutulan kişisel test anahtarıdır. Mağaza yayını için kalıcı ve güvenli imzalama kurulmalıdır; önbellek kaybı anahtarın değişmesine ve yerinde güncellemenin engellenmesine yol açabilir.
 
 Görsel yön, kullanıcının paylaştığı ekran görüntüsündeki koyu zemin, kare sayılar, büyük puan ve alt araç diziliminden esinlenir. Marka görselleri veya maskot kopyalanmaz. Uzun zincirlerde üst 2 kuvvetine tamamlama bu oyunun açık uyarlama kuralıdır; başka oyunun tüm kurallarının birebir doğrulandığı iddia edilmez.
+
+## APK içinden güncelleme
+
+Bu özelliği içeren APK bir kez mevcut uygulamanın üzerine kurulmalıdır; eski APK'ya uzaktan kod eklenmez. Android uygulama açılışından üç saniye sonra, beş dakikada bir açıkken ve yeniden öne geldiğinde (beş dakikalık aralık dolmuşsa) HTTPS üzerinden `update.json` sürüm bilgisini kontrol eder. İstek zaman aşımı 10 saniyedir; internet olmadığında oyun çalışmaya devam eder. Kontrol sırasında hesap, e-posta veya oyun kaydı gönderilmez.
+
+Yalnızca yüklü sürümden yüksek sürüm kodu teklif edilir. Bildirim sürükleme veya düşme animasyonunu bölmez. **Daha sonra** aynı sürümün otomatik bildirimini 24 saat erteler; ayarlardan yine açılabilir. Ayarlarda yüklü sürüm ve **Güncellemeleri denetle** bulunur. **Güncellemeyi indir** sabit HTTPS APK adresini sistem tarayıcısında açar; kullanıcı indirilen APK'yı açıp Android kurulum ekranında Güncelle'yi seçer. Sessiz kurulum yapılmaz ve uygulama kendini silmez. Tarayıcı sürümünde APK bildirimleri otomatik gösterilmez.
+
+Her başarılı Actions yayını aynı artan sürüm kodunu APK'ya ve `update.json` dosyasına yazar. Önceki APK'nın imza sertifikası yeni APK'yla karşılaştırılır; eşleşmezse yayın durur. İmza anahtarı bulunamazsa yeni anahtar üretilmez. Mevcut kişisel test anahtarı hâlâ Actions önbelleğindedir; uzun süreli dağıtım için bu mevcut anahtarın güvenli kalıcı yedeği gereklidir. GitHub Actions önbelleği kalıcı anahtar kasası değildir.
+
+`tests/test_updates.gd` yeni/eşit/eski sürüm, bozuk bilgi, farklı paket veya indirme adresi, çevrim dışı yanıt, 24 saat erteleme, gerçek yerel HTTP isteği, hamle sırasında bildirim erteleme ve ayarlardan elle açma davranışlarını kontrol eder. Gerçek telefonda indirme ve Android paket kurulumunun uçtan uca doğrulanması ayrıca gerekir.
+
+Kaynaklar: [Godot HTTPRequest](https://docs.godotengine.org/en/4.4/classes/class_httprequest.html), [Android uygulama güncellemeleri](https://developer.android.com/google/play/app-updates), [Android web üzerinden dağıtım](https://developer.android.com/distribute/marketing-tools/alternative-distribution).

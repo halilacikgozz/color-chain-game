@@ -15,6 +15,7 @@ func run() -> void:
 	check(absf(Numbers.ratio("5000000000000000000000000","10000000000000000000000000")-0.5) < 0.001,"Goal gauge handles huge scores")
 	var game = Numbers.new()
 	game.save_path = "user://number_chain_test_v3.json"
+	game.updates_auto_start = false
 	DirAccess.remove_absolute(game.save_path)
 	root.add_child(game)
 	game.effects = false

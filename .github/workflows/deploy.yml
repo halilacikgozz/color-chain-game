@@ -21,10 +21,28 @@ jobs:
           version: 4.4.1
           use-dotnet: false
           include-templates: true
+      - name: Stamp installed app version
+        run: |
+          python3 - <<'PYTHON'
+          import json, os
+          from pathlib import Path
+          code = int(os.environ['GITHUB_RUN_NUMBER'])
+          Path('build_info.json').write_text(json.dumps({'version_code':code,'version_name':'1.0.'+str(code)}))
+          PYTHON
       - name: Import project
         run: godot --headless --editor --path . --import
       - name: Test number game and save migration
         run: timeout 30s godot --headless --path . --script tests/test_numbers.gd
+      - name: Test app updates over HTTP
+        run: |
+          python3 -m http.server 8765 --bind 127.0.0.1 --directory tests/fixtures > /tmp/update-fixture.log 2>&1 &
+          UPDATE_SERVER_PID=$!
+          trap 'kill "$UPDATE_SERVER_PID"' EXIT
+          for attempt in 1 2 3 4 5; do
+            if curl --silent --fail http://127.0.0.1:8765/update.json > /dev/null; then break; fi
+            sleep 1
+          done
+          timeout 30s godot --headless --path . --script tests/test_updates.gd
       - name: Export web build
         run: |
           mkdir -p build/web
@@ -53,7 +71,8 @@ jobs:
           mkdir -p "$HOME/.local/share/color-chain-signing" "$HOME/.config/godot"
           APK_KEY="$HOME/.local/share/color-chain-signing/personal.keystore"
           if [ ! -f "$APK_KEY" ]; then
-            keytool -genkeypair -keystore "$APK_KEY" -storepass android -keypass android -alias androiddebugkey -dname "CN=Color Chain Test,O=Color Chain,C=TR" -keyalg RSA -keysize 2048 -validity 10000
+            echo "Existing Android signing key is unavailable. Refusing to replace it and break installed app updates."
+            exit 1
           fi
           python3 - <<'PYTHON'
           import os
@@ -74,16 +93,35 @@ jobs:
           "$ANDROID_HOME/build-tools/34.0.0/aapt" dump badging build/android/color-chain.apk > build/android/apk-info.txt
           python3 - <<'PYTHON'
           from pathlib import Path
-          import zipfile
+          import zipfile, os
           info = Path('build/android/apk-info.txt').read_text()
           assert "name='com.halilacikgozz.colorchain'" in info
           assert "android.permission.INTERNET" in info
+          assert "versionCode='"+os.environ['GITHUB_RUN_NUMBER']+"'" in info
+          assert "versionName='1.0."+os.environ['GITHUB_RUN_NUMBER']+"'" in info
           with zipfile.ZipFile('build/android/color-chain.apk') as apk:
               files = apk.namelist()
               assert 'lib/arm64-v8a/libgodot_android.so' in files
               assert 'lib/armeabi-v7a/libgodot_android.so' in files
               assert any(name.startswith('assets/') for name in files)
           print(info)
+          PYTHON
+          python3 - <<'PYTHON'
+          import urllib.request, time
+          url = 'https://halilacikgozz.github.io/color-chain-game/downloads/color-chain.apk?t='+str(int(time.time()))
+          urllib.request.urlretrieve(url,'build/android/previous.apk')
+          PYTHON
+          "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --print-certs build/android/previous.apk > build/android/previous-cert.txt
+          "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --print-certs build/android/color-chain.apk > build/android/current-cert.txt
+          python3 - <<'PYTHON'
+          from pathlib import Path
+          import re
+          pattern = r'Signer #1 certificate SHA-256 digest: ([0-9a-fA-F]+)'
+          old = re.search(pattern,Path('build/android/previous-cert.txt').read_text())
+          new = re.search(pattern,Path('build/android/current-cert.txt').read_text())
+          assert old and new and old.group(1).lower() == new.group(1).lower(), 'Signing certificate changed; refuse to publish incompatible update'
+          Path('build/android/previous.apk').unlink()
+          print('Existing APK signing certificate matches: in-place update remains compatible')
           PYTHON
           cp build/android/color-chain.apk build/web/downloads/color-chain.apk
           sha256sum build/android/color-chain.apk > build/android/SHA256SUMS.txt
@@ -93,6 +131,17 @@ jobs:
           from pathlib import Path
           page = Path('android-install.html').read_text().replace('{{VERSION}}','1.0.'+os.environ['GITHUB_RUN_NUMBER']).replace('{{APK_SIZE}}',str(round(Path('build/android/color-chain.apk').stat().st_size/1048576,1)))
           Path('build/web/android.html').write_text(page)
+          import json, hashlib
+          code = int(os.environ['GITHUB_RUN_NUMBER'])
+          info = json.loads(Path('build_info.json').read_text())
+          notes = json.loads(Path('release_notes.json').read_text())
+          apk = Path('build/web/downloads/color-chain.apk')
+          manifest = {'schema':1,'package_id':'com.halilacikgozz.colorchain',**info,
+            'download_url':'https://halilacikgozz.github.io/color-chain-game/downloads/color-chain.apk',
+            'apk_sha256':hashlib.sha256(apk.read_bytes()).hexdigest(),'apk_size':apk.stat().st_size,'notes':notes}
+          assert info['version_code'] == code and info['version_name'] == '1.0.'+str(code)
+          assert len(notes) <= 5 and all(isinstance(note,str) and len(note) <= 180 and '\n' not in note for note in notes)
+          Path('build/web/update.json').write_text(json.dumps(manifest,ensure_ascii=False))
           PYTHON
       - uses: actions/upload-artifact@v4
         with:

@@ -37,6 +37,9 @@ var palette_cache := {}
 var audio: AudioStreamPlayer
 var sounds := {}
 var reward_flash := 0.0
+var updater: Node
+var updates_auto_start := true
+var update_requested := false
 static func valid_number(s: String, zero_ok: bool = false) -> bool:
 	if s.is_empty() or (s.length() > 1 and s.begins_with("0")): return false
 	for c in s:
@@ -106,6 +109,10 @@ func _ready() -> void:
 	audio.volume_db = -17
 	add_child(audio)
 	if not load_progress(): new_game()
+	updater = preload("res://scripts/update_checker.gd").new()
+	updater.auto_start = updates_auto_start
+	updater.changed.connect(update_state_changed)
+	add_child(updater)
 	queue_redraw()
 
 func new_game() -> void:
@@ -269,7 +276,23 @@ func tone(note: int) -> void:
 	audio.stream = sounds[note]
 	audio.play()
 
+func update_state_changed() -> void:
+	if updater.has_update() and updater.manual and overlay == "settings" and not busy:
+		overlay = "update"
+		updater.mark_prompted()
+	update_requested = updater.should_prompt()
+	queue_redraw()
+
+func show_pending_update() -> void:
+	if update_requested and not busy and not dragging and overlay.is_empty() and not ended:
+		active_tool = ""
+		overlay = "update"
+		updater.mark_prompted()
+		update_requested = false
+		queue_redraw()
+
 func _process(delta: float) -> void:
+	show_pending_update()
 	if reward_flash > 0:
 		reward_flash = maxf(0,reward_flash-delta)
 		queue_redraw()
@@ -429,7 +452,19 @@ func apply_tool(cell: int) -> void:
 		release_chain()
 
 func overlay_press(p: Vector2) -> void:
-	if overlay == "restart":
+	if overlay == "update":
+		if Rect2(90,544,300,56).has_point(p):
+			save_progress()
+			var error: Error = updater.open_download()
+			if error == OK: overlay = "install_help"
+			else: message = "İndirme açılamadı • Ayarlardan tekrar deneyebilirsin"
+		elif Rect2(90,616,300,48).has_point(p):
+			updater.dismiss()
+			update_requested = false
+			overlay = ""
+	elif overlay == "install_help":
+		if Rect2(90,650,300,56).has_point(p): overlay = ""
+	elif overlay == "restart":
 		if Rect2(90,500,300,56).has_point(p): new_game()
 		elif Rect2(90,576,300,48).has_point(p): overlay = "settings"
 	elif overlay == "rules":
@@ -439,7 +474,12 @@ func overlay_press(p: Vector2) -> void:
 		elif Rect2(90,388,300,52).has_point(p): effects = not effects
 		elif Rect2(90,460,300,52).has_point(p): overlay = "rules"
 		elif Rect2(90,532,300,52).has_point(p): overlay = "restart"
-		elif Rect2(90,620,300,52).has_point(p): overlay = ""
+		elif Rect2(90,602,300,48).has_point(p):
+			if updater.has_update():
+				overlay = "update"
+				updater.mark_prompted()
+			else: updater.check(true)
+		elif Rect2(90,680,300,48).has_point(p): overlay = ""
 	save_progress()
 	queue_redraw()
 
@@ -575,6 +615,7 @@ func _draw() -> void:
 	label(str(gems),Vector2(364,52),20,Color("e9e2ff"),57)
 	panel(Rect2(408,22,48,48),Color("24252c"),24)
 	gear(Vector2(432,46))
+	if updater != null and updater.has_update(): draw_circle(Vector2(449,27),5,Color("b69aff"))
 	if chain.size() >= 2:
 		label("OLUŞACAK TAŞ",Vector2(240,91),12,Color("c8b2fa"))
 		label(compact(merge_result()),Vector2(240,139),48,tile_color(merge_result()),380)
@@ -633,12 +674,31 @@ func draw_end() -> void:
 func draw_overlay() -> void:
 	dim()
 	if overlay == "settings":
-		label("AYARLAR",Vector2(240,281),28)
+		label("AYARLAR",Vector2(240,276),28)
+		label("Sürüm "+updater.current_name,Vector2(240,300),12,Color("b7a4d7"))
 		button(Rect2(90,316,300,52),"Ses: "+("Açık" if sound_on else "Kapalı"))
 		button(Rect2(90,388,300,52),"Animasyon: "+("Açık" if effects else "Sade"))
 		button(Rect2(90,460,300,52),"Nasıl oynanır?")
 		button(Rect2(90,532,300,52),"Yeni tur başlat")
-		button(Rect2(90,620,300,52),"Oyuna dön",true)
+		var update_label := "Güncellemeleri denetle"
+		if updater.checking: update_label = "Denetleniyor…"
+		elif updater.has_update(): update_label = "Yeni sürüm: "+updater.latest_name
+		button(Rect2(90,602,300,48),update_label)
+		label(updater.status,Vector2(240,668),11,Color("c6b5de"),316)
+		button(Rect2(90,680,300,48),"Oyuna dön",true)
+	elif overlay == "update":
+		label("GÜNCELLEME VAR",Vector2(240,287),26,Color("d2bcff"))
+		label("Yeni sürüm: "+updater.latest_name,Vector2(240,333),20)
+		label("Yüklü sürüm: "+updater.current_name,Vector2(240,363),14,Color("b9b6c5"))
+		for i in updater.notes.size(): label(updater.notes[i],Vector2(240,404+i*24),14,Color("e1dce9"),320)
+		button(Rect2(90,544,300,56),"Güncellemeyi indir",true)
+		button(Rect2(90,616,300,48),"Daha sonra")
+		label("Kurulum Android onayıyla tamamlanır.",Vector2(240,705),13,Color("b3b2be"))
+	elif overlay == "install_help":
+		label("İNDİRME AÇILDI",Vector2(240,292),25,Color("d2bcff"))
+		var steps := ["1. Tarayıcıda APK indirmesini tamamla.","2. İndirilen dosyayı aç.","3. Android ekranında Güncelle'ye dokun.","Uygulamayı silmeden üzerine kur.","Puanın ve kayıtların korunur."]
+		for i in steps.size(): label(steps[i],Vector2(240,369+i*43),15,Color("ded9e7"),320)
+		button(Rect2(90,650,300,56),"Oyuna dön",true)
 	elif overlay == "restart":
 		label("YENİ TUR",Vector2(240,304),28)
 		label("Bu turdaki tahta ve puan sıfırlanır.",Vector2(240,383),17)
