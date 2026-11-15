@@ -306,7 +306,10 @@ func _draw() -> void:
 	label("EN İYİ", Vector2(345, 99), 12, Color("a5c8b3"))
 	label(compact(best), Vector2(345, 132), 26, Color("ffd384"))
 	if chain.size() >= 2:
-		label(str(chain.size()) + " × " + compact(board[chain[0]]) + " = " + compact(total()), Vector2(240, 183), 24, Color("ffd384"))
+		var terms := PackedStringArray()
+		for i in mini(chain.size(), 3): terms.append(compact(board[chain[0]]))
+		var expression := " + ".join(terms) if chain.size() <= 3 else compact(board[chain[0]]) + " + … + " + compact(board[chain[0]])
+		label(expression + " = " + compact(total()), Vector2(240, 183), 24, Color("ffd384"))
 	else: label("Aynı sayıları birleştir, toplamı büyüt", Vector2(240, 181), 17)
 	label("Yalnızca yatay ve dikey komşular", Vector2(240, 205), 13, Color("a5c8b3"))
 	panel(Rect2(31, 214, 418, 418), Color("123426"), 20)
