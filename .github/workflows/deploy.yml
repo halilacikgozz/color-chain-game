@@ -212,7 +212,7 @@ jobs:
           curl --fail --location --retry 3 https://github.com/google/bundletool/releases/download/1.18.3/bundletool-all-1.18.3.jar --output /tmp/bundletool.jar
           python3 tools/verify_play_bundle.py --bundle build/play/color-chain.aab --bundletool /tmp/bundletool.jar --version-code "$GITHUB_RUN_NUMBER" --report build/play/verification.json
           export GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD=android
-          java -jar /tmp/bundletool.jar build-apks --bundle=build/play/color-chain.aab --output=build/play/check.apks --mode=universal --ks="$HOME/.local/share/color-chain-signing/personal.keystore" --ks-key-alias=androiddebugkey --ks-pass=env:GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD --key-pass=env:GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD
+          java -jar /tmp/bundletool.jar build-apks --bundle=build/play/color-chain.aab --output=build/play/check.apks --mode=universal --ks="$HOME/.local/share/color-chain-signing/personal.keystore" --ks-key-alias=androiddebugkey --ks-pass="pass:$GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD" --key-pass="pass:$GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD"
           unzip -p build/play/check.apks universal.apk > build/play/universal-test.apk
           "$ANDROID_HOME/build-tools/36.1.0/zipalign" -c -P 16 -v 4 build/play/universal-test.apk > build/play/zip-alignment.txt
           "$ANDROID_HOME/build-tools/36.1.0/apksigner" verify --verbose build/play/universal-test.apk > build/play/apk-signature.txt
