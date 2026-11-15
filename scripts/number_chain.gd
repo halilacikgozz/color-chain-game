@@ -151,7 +151,7 @@ func finish_merge() -> void:
 	score = add(score, result)
 	if greater(score, best): best = score
 	if greater(result, largest): largest = result
-	message = str(chain.size()) + " taş → " + compact(result)
+	message = str(chain.size()) + " taş = " + compact(result)
 	chain.clear()
 	motions.clear()
 	# Collapse bottom-up. Each retained stone keeps its value and column order.
