@@ -3,7 +3,8 @@ extends Node2D
 const SIDE := 7
 const ORIGIN := Vector2(37, 220)
 const STEP := 58.0
-const SAVE := "user://number_chain_v1.json"
+const SAVE := "user://number_chain_v2.json"
+const LEGACY_SAVE := "user://number_chain_v1.json"
 const COLORS := [Color("67d5b5"), Color("ffd384"), Color("b5a0f5"), Color("f79fae"), Color("80c5ef")]
 var board: Array[String] = []
 var chain: Array[int] = []
@@ -46,6 +47,16 @@ static func add(a: String, b: String) -> String:
 
 static func greater(a: String, b: String) -> bool:
 	return a.length() > b.length() or (a.length() == b.length() and a > b)
+
+# Long chains round UP to the next binary tier, never to an arbitrary integer.
+# Doubling decimal strings avoids float rounding near large powers of two.
+static func power_at_least(value: String) -> String:
+	var power := "2"
+	while greater(value, power): power = add(power, power)
+	return power
+
+func merge_result() -> String:
+	return power_at_least(total())
 
 static func compact(s: String) -> String:
 	if s.length() <= 4: return s
@@ -146,14 +157,15 @@ func show_exact(value: String) -> void:
 	dialog.popup_centered(Vector2i(350, 180))
 
 func finish_merge() -> void:
-	var result := total()
+	var consumed := total()
+	var result := merge_result()
 	var target: int = chain.back()
 	for i in chain: board[i] = ""
 	board[target] = result
-	score = add(score, result)
+	score = add(score, consumed)
 	if greater(score, best): best = score
 	if greater(result, largest): largest = result
-	message = str(chain.size()) + " taş = " + compact(result)
+	message = str(chain.size()) + " taş • Yeni taş: " + compact(result)
 	chain.clear()
 	motions.clear()
 	# Collapse bottom-up. Each retained stone keeps its value and column order.
@@ -258,22 +270,32 @@ func _notification(what: int) -> void:
 
 func save_progress() -> void:
 	var file := FileAccess.open(save_path, FileAccess.WRITE)
-	if file: file.store_string(JSON.stringify({"version":1,"board":board,"score":score,"best":best,"largest":largest}))
+	if file: file.store_string(JSON.stringify({"version":2,"board":board,"score":score,"best":best,"largest":largest}))
 
 func load_progress() -> bool:
-	if not FileAccess.file_exists(save_path): return false
-	var data = JSON.parse_string(FileAccess.get_file_as_string(save_path))
-	if not data is Dictionary or data.get("version") != 1: return false
+	var source := save_path
+	if not FileAccess.file_exists(source) and save_path == SAVE: source = LEGACY_SAVE
+	if not FileAccess.file_exists(source): return false
+	var data = JSON.parse_string(FileAccess.get_file_as_string(source))
+	if not data is Dictionary or not data.get("version") in [1, 2]: return false
 	if not data.get("board") is Array or data.board.size() != 49: return false
 	for value in data.board:
 		if not value is String or not valid_number(value): return false
+		if data.version == 2 and power_at_least(value) != value: return false
 	for key in ["score", "best", "largest"]:
 		if not data.get(key) is String or not valid_number(data[key], key != "largest"): return false
+	if data.version == 2 and power_at_least(data.largest) != data.largest: return false
 	board.assign(data.board)
+	if data.version == 1:
+		for i in board.size(): board[i] = power_at_least(board[i])
+		message = "Eski taşlar 2’nin kuvvetlerine yükseltildi"
 	score = data.score
 	best = data.best
-	largest = data.largest
+	largest = power_at_least(data.largest)
+	for value in board:
+		if greater(value, largest): largest = value
 	ended = not has_move()
+	if data.version == 1: save_progress()
 	return true
 
 func panel(rect: Rect2, color: Color, radius: int = 16) -> void:
@@ -308,12 +330,11 @@ func _draw() -> void:
 	label("EN İYİ", Vector2(345, 99), 12, Color("a5c8b3"))
 	label(compact(best), Vector2(345, 132), 26, Color("ffd384"))
 	if chain.size() >= 2:
-		var terms := PackedStringArray()
-		for i in mini(chain.size(), 3): terms.append(compact(board[chain[0]]))
-		var expression := " + ".join(terms) if chain.size() <= 3 else compact(board[chain[0]]) + " + … + " + compact(board[chain[0]])
-		label(expression + " = " + compact(total()), Vector2(240, 183), 24, Color("ffd384"))
-	else: label("Aynı sayıları birleştir, toplamı büyüt", Vector2(240, 181), 17)
-	label("Yatay, dikey ve çapraz komşular", Vector2(240, 205), 13, Color("a5c8b3"))
+		label("Yeni taş: " + compact(merge_result()), Vector2(240, 182), 26, Color("ffd384"))
+		label(str(chain.size()) + " taş • Toplam: " + compact(total()), Vector2(240, 205), 14, Color("a5c8b3"))
+	else:
+		label("2 • 4 • 8 • 16 • 32 • 64 • …", Vector2(240, 181), 20, Color("ffd384"))
+		label("Aynı sayıları bağla • Çapraz da olur", Vector2(240, 205), 13, Color("a5c8b3"))
 	panel(Rect2(31, 214, 418, 418), Color("123426"), 20)
 	if phase == 2:
 		var t := 1.0 - pow(1.0 - minf(elapsed / 0.26, 1.0), 3)
@@ -331,7 +352,7 @@ func _draw() -> void:
 			for m in motions: stone(m.value, m.from.lerp(m.to, t), true)
 	label(message, Vector2(240, 660), 17, Color("cbe0c5"))
 	label("En büyük taş: " + compact(largest) + " • Üst sınır yok", Vector2(240, 690), 15, Color("ffd384"))
-	label("Tam değeri görmek için bir taşa dokun", Vector2(240, 712), 12, Color("a5c8b3"))
+	label("Uzun zincirler bir üst 2 kuvvetine tamamlanır", Vector2(240, 712), 12, Color("a5c8b3"))
 	panel(Rect2(37, 725, 406, 48), Color("246c47"))
 	label("Yeni oyun", Vector2(240, 756), 20)
 	if ended:
